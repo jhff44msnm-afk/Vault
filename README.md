@@ -16,6 +16,17 @@ public/
   manifest.webmanifest, sw.js → hacen que la app se pueda "instalar" como PWA
 ```
 
+## Lectura de estados de cuenta (Date · Description · Amount · Balance)
+
+El módulo `src/utils/statementParser.js` lee las cuatro columnas de un estado de cuenta PDF:
+
+- **Date** — acepta `MM/DD`, `MM/DD/YY`, `MM/DD/YYYY`, `MM-DD-YY` e ISO. Cuando la fecha no trae año (común en estados de cuenta: solo `05/01`), el año se infiere del período del documento (`Statement from 05/01/26 Thru 05/31/26`), incluyendo el cruce de año diciembre→enero.
+- **Description** — todo lo que no es fecha, monto ni balance; se limpia y se recorta.
+- **Amount** — maneja `$1,234.56`, paréntesis `(12.34)`, signo final `4.31-` y montos sub-dólar sin cero inicial (`.28-`).
+- **Balance** — se captura el saldo corrido de cada línea. Además, el **delta del balance** (`saldo actual − saldo anterior`) se usa como verificación autoritativa del signo del monto, de modo que un cargo vs. un abono nunca se confunden.
+
+La lógica está separada de la extracción del PDF para poder probarla; validada contra un estado de cuenta real, los totales de depósitos/retiros y el saldo final coinciden exactamente con el resumen impreso del banco.
+
 ## 1. Probarla en tu computadora (opcional pero recomendado)
 
 Necesitas [Node.js](https://nodejs.org) instalado (versión 18 o más reciente).

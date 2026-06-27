@@ -152,14 +152,14 @@ export function Documentos({ t, data, update }) {
       const realIdx = parsedTxns.indexOf(tx);
       return {
         id: uid(), name: tx.name, amount: tx.amount, category: txnCategories[realIdx] || tx.category,
-        dateISO: tx.dateISO, paymentMethod: "Credit", notes: "Imported from statement",
+        dateISO: tx.dateISO, paymentMethod: "Credit", balance: tx.balance, notes: "Imported from statement",
       };
     });
     const newIncomes = toImport.filter((tx) => tx.type === "income").map((tx) => {
       const realIdx = parsedTxns.indexOf(tx);
       return {
         id: uid(), name: tx.name, amount: tx.amount, category: txnCategories[realIdx] || tx.category,
-        dateISO: tx.dateISO, notes: "Imported from statement",
+        dateISO: tx.dateISO, balance: tx.balance, notes: "Imported from statement",
       };
     });
 
@@ -298,6 +298,7 @@ export function Documentos({ t, data, update }) {
                     <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.name}</div>
                     <div style={{ fontSize: 10, color: t.textDim }}>
                       {txn.dateISO} · {txnCategories[i] || txn.category}
+                      {txn.balance != null && <span> · bal {fmt(txn.balance)}</span>}
                       {txn.isDuplicate && <span style={{ color: t.gold, fontWeight: 600 }}> · DUPLICATE</span>}
                     </div>
                   </div>

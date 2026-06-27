@@ -6,7 +6,7 @@ import {
 import { Card, SectionTitle, MonoAmount, AnimatedMonoAmount, Row, ProgressBar, Badge } from "./ui.jsx";
 import { EXPENSE_CATEGORIES, CAT_COLORS } from "../utils/constants.js";
 import {
-  fmt, startOfMonth, daysUntil, daysInMonth,
+  fmt, startOfWeek, startOfMonth, daysUntil, daysInMonth,
   nextDueDateForDay, buildMonthlySeries, buildPatrimonioSeries,
 } from "../utils/calculations.js";
 
@@ -20,6 +20,9 @@ export function Dashboard({ t, data }) {
 
   const todayStr = today.toISOString().slice(0, 10);
   const spentToday = allExpenses.filter((x) => x.dateISO === todayStr).reduce((s, x) => s + Number(x.amount || 0), 0);
+  const weekStart = startOfWeek(today);
+  const spentThisWeek = allExpenses.filter((x) => new Date(x.dateISO) >= weekStart).reduce((s, x) => s + Number(x.amount || 0), 0);
+  const incomeThisWeek = data.incomes.filter((x) => new Date(x.dateISO) >= weekStart).reduce((s, x) => s + Number(x.amount || 0), 0);
   const monthStart = startOfMonth(today);
   const dayOfMonth = today.getDate();
   const spentThisMonth = allExpenses.filter((x) => new Date(x.dateISO) >= monthStart).reduce((s, x) => s + Number(x.amount || 0), 0);
@@ -59,6 +62,16 @@ export function Dashboard({ t, data }) {
         <Row t={t} label="Spent today" value={-spentToday} />
         <Row t={t} label="Daily average this month" value={-dailyAvg} />
         <Row t={t} label="Remaining daily budget" value={dailyBudgetRemaining} />
+      </Card>
+
+      <Card t={t}>
+        <SectionTitle t={t}>This Week</SectionTitle>
+        <Row t={t} label="Income" value={incomeThisWeek} />
+        <Row t={t} label="Spent" value={-spentThisWeek} />
+        <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 13, color: t.textDim }}>Week balance</span>
+          <AnimatedMonoAmount t={t} value={incomeThisWeek - spentThisWeek} color={incomeThisWeek - spentThisWeek >= 0 ? t.green : t.red} />
+        </div>
       </Card>
 
       <Card t={t}>
