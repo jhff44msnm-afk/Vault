@@ -1,8 +1,12 @@
 import React, { useState } from "react";
 import { Card, SectionTitle, Row, ProgressBar, Input, btnPrimary, btnGhost, btnSmall, iconBtn } from "./ui.jsx";
 import { fmt, pctStr, uid } from "../utils/calculations.js";
+import { useToast } from "./Toast.jsx";
+import { useConfirm } from "./ConfirmDialog.jsx";
 
 export function Metas({ t, data, update }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [form, setForm] = useState({ name: "", targetAmount: "", savedAmount: "0", deadlineISO: "" });
   const [editingId, setEditingId] = useState(null);
 
@@ -12,11 +16,20 @@ export function Metas({ t, data, update }) {
     const payload = { name: form.name, targetAmount: Number(form.targetAmount), savedAmount: Number(form.savedAmount || 0), deadlineISO: form.deadlineISO };
     const next = editingId ? data.goals.map((g) => (g.id === editingId ? { ...g, ...payload } : g)) : [...data.goals, { id: uid(), ...payload }];
     update({ goals: next });
+    toast(editingId ? "Meta actualizada" : "Meta creada");
     resetForm();
   }
   function edit(g) { setForm({ name: g.name, targetAmount: String(g.targetAmount), savedAmount: String(g.savedAmount), deadlineISO: g.deadlineISO || "" }); setEditingId(g.id); }
-  function remove(id) { update({ goals: data.goals.filter((g) => g.id !== id) }); if (editingId === id) resetForm(); }
-  function addToGoal(id, amount) { update({ goals: data.goals.map((g) => (g.id === id ? { ...g, savedAmount: g.savedAmount + amount } : g)) }); }
+  async function remove(id) {
+    if (!await confirm("¿Eliminar esta meta?")) return;
+    update({ goals: data.goals.filter((g) => g.id !== id) });
+    if (editingId === id) resetForm();
+    toast("Meta eliminada");
+  }
+  function addToGoal(id, amount) {
+    update({ goals: data.goals.map((g) => (g.id === id ? { ...g, savedAmount: g.savedAmount + amount } : g)) });
+    toast(`+$${amount} abonado`);
+  }
 
   return (
     <div>
@@ -53,7 +66,7 @@ export function Metas({ t, data, update }) {
         );
       })}
 
-      <Card t={t}>
+      <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
         <SectionTitle t={t}>{editingId ? "Editar meta" : "Nueva meta"}</SectionTitle>
         <Input t={t} placeholder="Nombre (ej. Fondo de emergencia)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
         <Input t={t} placeholder="Monto objetivo (USD)" type="number" value={form.targetAmount} onChange={(v) => setForm({ ...form, targetAmount: v })} />
@@ -67,4 +80,3 @@ export function Metas({ t, data, update }) {
     </div>
   );
 }
-

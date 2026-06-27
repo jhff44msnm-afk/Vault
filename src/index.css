@@ -20,3 +20,109 @@ input, select, textarea, button {
 ::-webkit-scrollbar {
   display: none;
 }
+
+/* === Vault UI Animations === */
+
+@keyframes vault-fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vault-slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vault-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes vault-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes vault-progressFill {
+  from { width: 0%; }
+}
+
+@keyframes vault-progressGlow {
+  0%, 100% { box-shadow: 0 0 4px currentColor; }
+  50% { box-shadow: 0 0 12px currentColor, 0 0 4px currentColor; }
+}
+
+@keyframes vault-toastIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes vault-toastOut {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(20px); opacity: 0; }
+}
+
+@keyframes vault-scaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes vault-overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes vault-fabIn {
+  from { transform: scale(0) rotate(-180deg); opacity: 0; }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes vault-crossfade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Card stagger animation */
+.vault-card {
+  animation: vault-fadeIn 0.35s ease both;
+}
+.vault-card:nth-child(2) { animation-delay: 0.04s; }
+.vault-card:nth-child(3) { animation-delay: 0.08s; }
+.vault-card:nth-child(4) { animation-delay: 0.12s; }
+.vault-card:nth-child(5) { animation-delay: 0.16s; }
+.vault-card:nth-child(6) { animation-delay: 0.2s; }
+.vault-card:nth-child(7) { animation-delay: 0.24s; }
+.vault-card:nth-child(8) { animation-delay: 0.28s; }
+
+/* Button micro-interactions */
+.vault-app button {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.vault-app button:active {
+  transform: scale(0.95);
+}
+
+/* Collapsible section */
+.vault-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+.vault-collapse.vault-collapse-open {
+  grid-template-rows: 1fr;
+}
+.vault-collapse > div {
+  overflow: hidden;
+}
+
+/* Badge pulse */
+.vault-badge-pulse {
+  animation: vault-pulse 2s ease-in-out infinite;
+}
+
+/* Loading skeleton shimmer */
+.vault-skeleton {
+  background-image: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: vault-shimmer 1.5s ease-in-out infinite;
+}
