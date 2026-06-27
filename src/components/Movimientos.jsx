@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { Card, SectionTitle, AnimatedMonoAmount, Row, Input, Select, CollapsibleSection, btnPrimary, btnGhost, iconBtn, pillBtn } from "./ui.jsx";
+import { Card, SectionTitle, AnimatedMonoAmount, Row, Input, Select, FormSheet, CollapsibleSection, btnPrimary, btnGhost, iconBtn, pillBtn } from "./ui.jsx";
 import { EXPENSE_CATEGORIES, CAT_COLORS, INCOME_CATEGORIES, PAYMENT_METHODS } from "../utils/constants.js";
 import { fmt, uid, startOfWeek, startOfMonth } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
@@ -11,9 +11,17 @@ export function Movimientos({ t, data, update }) {
   const confirm = useConfirm();
   const [kind, setKind] = useState("gasto");
   const [view, setView] = useState("semana");
+  const [showForm, setShowForm] = useState(false);
+  const [formKind, setFormKind] = useState("gasto");
   const [expForm, setExpForm] = useState({ name: "", amount: "", category: "Comida", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Efectivo", notes: "" });
   const [incForm, setIncForm] = useState({ name: "", amount: "", category: "Salario", dateISO: new Date().toISOString().slice(0, 10), notes: "" });
   const [editingId, setEditingId] = useState(null);
+
+  useEffect(() => {
+    const handler = () => { resetExpForm(); resetIncForm(); setFormKind(kind); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, [kind]);
 
   const now = new Date();
   const weekStart = startOfWeek(now);
@@ -32,6 +40,7 @@ export function Movimientos({ t, data, update }) {
 
   function resetExpForm() { setExpForm({ name: "", amount: "", category: "Comida", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Efectivo", notes: "" }); setEditingId(null); }
   function resetIncForm() { setIncForm({ name: "", amount: "", category: "Salario", dateISO: new Date().toISOString().slice(0, 10), notes: "" }); setEditingId(null); }
+  function closeForm() { resetExpForm(); resetIncForm(); setShowForm(false); }
 
   function submitExpense() {
     if (!expForm.name.trim() || !expForm.amount) return;
@@ -39,7 +48,7 @@ export function Movimientos({ t, data, update }) {
     const next = editingId ? data.variableExpenses.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.variableExpenses, { id: uid(), ...payload }];
     update({ variableExpenses: next });
     toast(editingId ? "Gasto actualizado" : "Gasto registrado");
-    resetExpForm();
+    closeForm();
   }
   function submitIncome() {
     if (!incForm.name.trim() || !incForm.amount) return;
@@ -47,10 +56,10 @@ export function Movimientos({ t, data, update }) {
     const next = editingId ? data.incomes.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.incomes, { id: uid(), ...payload }];
     update({ incomes: next });
     toast(editingId ? "Ingreso actualizado" : "Ingreso registrado");
-    resetIncForm();
+    closeForm();
   }
-  function editExpense(e) { setExpForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, paymentMethod: e.paymentMethod || "Efectivo", notes: e.notes || "" }); setEditingId(e.id); }
-  function editIncome(e) { setIncForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, notes: e.notes || "" }); setEditingId(e.id); }
+  function editExpense(e) { setExpForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, paymentMethod: e.paymentMethod || "Efectivo", notes: e.notes || "" }); setEditingId(e.id); setFormKind("gasto"); setShowForm(true); }
+  function editIncome(e) { setIncForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, notes: e.notes || "" }); setEditingId(e.id); setFormKind("ingreso"); setShowForm(true); }
   async function removeExpense(id) {
     if (!await confirm("¿Eliminar este gasto?")) return;
     update({ variableExpenses: data.variableExpenses.filter((e) => e.id !== id) });
@@ -99,20 +108,6 @@ export function Movimientos({ t, data, update }) {
             </Card>
           )}
 
-          <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-            <SectionTitle t={t}>{editingId ? "Editar gasto" : "Registrar gasto"}</SectionTitle>
-            <Input t={t} placeholder="Nombre (ej. Comida, Ropa nueva)" value={expForm.name} onChange={(v) => setExpForm({ ...expForm, name: v })} />
-            <Input t={t} placeholder="Monto (USD)" type="number" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} />
-            <Select t={t} value={expForm.category} onChange={(v) => setExpForm({ ...expForm, category: v })} options={EXPENSE_CATEGORIES} />
-            <Select t={t} value={expForm.paymentMethod} onChange={(v) => setExpForm({ ...expForm, paymentMethod: v })} options={PAYMENT_METHODS} />
-            <Input t={t} type="date" value={expForm.dateISO} onChange={(v) => setExpForm({ ...expForm, dateISO: v })} />
-            <Input t={t} placeholder="Nota (opcional)" value={expForm.notes} onChange={(v) => setExpForm({ ...expForm, notes: v })} />
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button onClick={submitExpense} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
-              {editingId && <button onClick={resetExpForm} style={btnGhost(t)}>Cancelar</button>}
-            </div>
-          </Card>
-
           <Card t={t}>
             <CollapsibleSection t={t} title="Movimientos" count={filteredExpenses.length}>
               {filteredExpenses.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin gastos registrados en este periodo.</div>}
@@ -139,19 +134,6 @@ export function Movimientos({ t, data, update }) {
             <AnimatedMonoAmount t={t} value={totalInc} size={24} color={t.green} />
           </Card>
 
-          <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-            <SectionTitle t={t}>{editingId ? "Editar ingreso" : "Registrar ingreso"}</SectionTitle>
-            <Input t={t} placeholder="Nombre (ej. Quincena, Pago de cliente)" value={incForm.name} onChange={(v) => setIncForm({ ...incForm, name: v })} />
-            <Input t={t} placeholder="Monto (USD)" type="number" value={incForm.amount} onChange={(v) => setIncForm({ ...incForm, amount: v })} />
-            <Select t={t} value={incForm.category} onChange={(v) => setIncForm({ ...incForm, category: v })} options={INCOME_CATEGORIES} />
-            <Input t={t} type="date" value={incForm.dateISO} onChange={(v) => setIncForm({ ...incForm, dateISO: v })} />
-            <Input t={t} placeholder="Nota (opcional)" value={incForm.notes} onChange={(v) => setIncForm({ ...incForm, notes: v })} />
-            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button onClick={submitIncome} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
-              {editingId && <button onClick={resetIncForm} style={btnGhost(t)}>Cancelar</button>}
-            </div>
-          </Card>
-
           <Card t={t}>
             <CollapsibleSection t={t} title="Movimientos" count={filteredIncomes.length}>
               {filteredIncomes.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin ingresos registrados en este periodo.</div>}
@@ -172,6 +154,37 @@ export function Movimientos({ t, data, update }) {
           </Card>
         </>
       )}
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar movimiento" : "Nuevo movimiento"}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <button onClick={() => setFormKind("gasto")} style={pillBtn(t, formKind === "gasto")}>🧾 Gasto</button>
+          <button onClick={() => setFormKind("ingreso")} style={pillBtn(t, formKind === "ingreso")}>💰 Ingreso</button>
+        </div>
+        {formKind === "gasto" ? (
+          <>
+            <Input t={t} placeholder="Nombre (ej. Comida, Ropa nueva)" value={expForm.name} onChange={(v) => setExpForm({ ...expForm, name: v })} />
+            <Input t={t} placeholder="Monto (USD)" type="number" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} />
+            <Select t={t} value={expForm.category} onChange={(v) => setExpForm({ ...expForm, category: v })} options={EXPENSE_CATEGORIES} />
+            <Select t={t} value={expForm.paymentMethod} onChange={(v) => setExpForm({ ...expForm, paymentMethod: v })} options={PAYMENT_METHODS} />
+            <Input t={t} type="date" value={expForm.dateISO} onChange={(v) => setExpForm({ ...expForm, dateISO: v })} />
+            <Input t={t} placeholder="Nota (opcional)" value={expForm.notes} onChange={(v) => setExpForm({ ...expForm, notes: v })} />
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button onClick={submitExpense} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar gasto"}</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Input t={t} placeholder="Nombre (ej. Quincena, Pago de cliente)" value={incForm.name} onChange={(v) => setIncForm({ ...incForm, name: v })} />
+            <Input t={t} placeholder="Monto (USD)" type="number" value={incForm.amount} onChange={(v) => setIncForm({ ...incForm, amount: v })} />
+            <Select t={t} value={incForm.category} onChange={(v) => setIncForm({ ...incForm, category: v })} options={INCOME_CATEGORIES} />
+            <Input t={t} type="date" value={incForm.dateISO} onChange={(v) => setIncForm({ ...incForm, dateISO: v })} />
+            <Input t={t} placeholder="Nota (opcional)" value={incForm.notes} onChange={(v) => setIncForm({ ...incForm, notes: v })} />
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button onClick={submitIncome} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar ingreso"}</button>
+            </div>
+          </>
+        )}
+      </FormSheet>
     </div>
   );
 }

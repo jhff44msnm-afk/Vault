@@ -20,7 +20,7 @@ function FAB({ tab, t }) {
   if (tab === "dashboard") return null;
   return (
     <button
-      onClick={() => document.getElementById("vault-form")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+      onClick={() => window.dispatchEvent(new CustomEvent("vault-open-form"))}
       style={{
         position: "fixed", bottom: 100, right: "max(16px, calc(50vw - 224px))",
         width: 52, height: 52, borderRadius: "50%",

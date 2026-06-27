@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, SectionTitle, Row, Field, Input, CollapsibleSection, btnPrimary, btnGhost } from "./ui.jsx";
+import { Card, SectionTitle, Row, Field, Input, CollapsibleSection, FormSheet, btnPrimary, btnGhost, pillBtn } from "./ui.jsx";
 import { fmt, uid, DEFAULT_DATA } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
 
@@ -13,10 +13,21 @@ export function Pension({ t, data, update }) {
     currentAge: String(pension.currentAge || ""), retirementAge: String(pension.retirementAge || 65),
   });
   const [contribAmount, setContribAmount] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [formKind, setFormKind] = useState("afore");
+
+  useEffect(() => {
+    const handler = () => { setFormKind("afore"); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, []);
+
+  function closeForm() { setShowForm(false); }
 
   function saveForm() {
     update({ pension: { ...pension, afore: form.afore, currentBalance: Number(form.currentBalance) || 0, monthlyContribution: Number(form.monthlyContribution) || 0, historicalReturnPct: Number(form.historicalReturnPct) || 0, currentAge: Number(form.currentAge) || "", retirementAge: Number(form.retirementAge) || 65 } });
     toast("Datos de AFORE guardados");
+    closeForm();
   }
   function logContribution() {
     if (!contribAmount) return;
@@ -25,6 +36,7 @@ export function Pension({ t, data, update }) {
     update({ pension: { ...pension, contributions: [...(pension.contributions || []), entry], currentBalance: Number(pension.currentBalance || 0) + Number(contribAmount) } });
     setContribAmount("");
     toast("Aportación registrada");
+    closeForm();
   }
 
   const yearsToRetire = Math.max(0, (Number(form.retirementAge) || 65) - (Number(form.currentAge) || 0));
@@ -40,19 +52,6 @@ export function Pension({ t, data, update }) {
 
   return (
     <div>
-      <Card t={t} id="vault-form">
-        <SectionTitle t={t}>AFORE actual</SectionTitle>
-        <Field t={t} label="Administradora (AFORE)"><Input t={t} value={form.afore} onChange={(v) => setForm({ ...form, afore: v })} placeholder="Ej. Profuturo, XXI-Banorte" /></Field>
-        <Field t={t} label="Saldo actual (USD)"><Input t={t} type="number" value={form.currentBalance} onChange={(v) => setForm({ ...form, currentBalance: v })} /></Field>
-        <Field t={t} label="Aportación mensual (USD)"><Input t={t} type="number" value={form.monthlyContribution} onChange={(v) => setForm({ ...form, monthlyContribution: v })} /></Field>
-        <Field t={t} label="Rendimiento histórico anual (%)"><Input t={t} type="number" value={form.historicalReturnPct} onChange={(v) => setForm({ ...form, historicalReturnPct: v })} /></Field>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Field t={t} label="Edad actual"><Input t={t} type="number" value={form.currentAge} onChange={(v) => setForm({ ...form, currentAge: v })} /></Field>
-          <Field t={t} label="Edad de retiro"><Input t={t} type="number" value={form.retirementAge} onChange={(v) => setForm({ ...form, retirementAge: v })} /></Field>
-        </div>
-        <button onClick={saveForm} style={{ ...btnPrimary(t), width: "100%" }}>Guardar datos de AFORE</button>
-      </Card>
-
       <Card t={t}>
         <SectionTitle t={t}>Proyección de retiro</SectionTitle>
         <Row t={t} label="Años para retiro" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{yearsToRetire}</span>} />
@@ -70,17 +69,40 @@ export function Pension({ t, data, update }) {
       </Card>
 
       <Card t={t}>
-        <SectionTitle t={t}>Registrar aportación voluntaria</SectionTitle>
-        <Input t={t} placeholder="Monto (USD)" type="number" value={contribAmount} onChange={setContribAmount} />
-        <button onClick={logContribution} style={{ ...btnGhost(t), width: "100%" }}>Registrar aportación</button>
-      </Card>
-
-      <Card t={t}>
         <CollapsibleSection t={t} title="Historial de aportaciones" count={(pension.contributions || []).length}>
           {(pension.contributions || []).length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin aportaciones registradas.</div>}
           {(pension.contributions || []).slice().reverse().map((c) => <Row key={c.id} t={t} label={c.dateISO} value={c.amount} />)}
         </CollapsibleSection>
       </Card>
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={formKind === "afore" ? "Datos de AFORE" : "Aportación voluntaria"}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <button onClick={() => setFormKind("afore")} style={pillBtn(t, formKind === "afore")}>🏦 AFORE</button>
+          <button onClick={() => setFormKind("aportacion")} style={pillBtn(t, formKind === "aportacion")}>💵 Aportación</button>
+        </div>
+        {formKind === "afore" ? (
+          <>
+            <Field t={t} label="Administradora (AFORE)"><Input t={t} value={form.afore} onChange={(v) => setForm({ ...form, afore: v })} placeholder="Ej. Profuturo, XXI-Banorte" /></Field>
+            <Field t={t} label="Saldo actual (USD)"><Input t={t} type="number" value={form.currentBalance} onChange={(v) => setForm({ ...form, currentBalance: v })} /></Field>
+            <Field t={t} label="Aportación mensual (USD)"><Input t={t} type="number" value={form.monthlyContribution} onChange={(v) => setForm({ ...form, monthlyContribution: v })} /></Field>
+            <Field t={t} label="Rendimiento histórico anual (%)"><Input t={t} type="number" value={form.historicalReturnPct} onChange={(v) => setForm({ ...form, historicalReturnPct: v })} /></Field>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Field t={t} label="Edad actual"><Input t={t} type="number" value={form.currentAge} onChange={(v) => setForm({ ...form, currentAge: v })} /></Field>
+              <Field t={t} label="Edad de retiro"><Input t={t} type="number" value={form.retirementAge} onChange={(v) => setForm({ ...form, retirementAge: v })} /></Field>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button onClick={saveForm} style={btnPrimary(t)}>Guardar datos de AFORE</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Input t={t} placeholder="Monto (USD)" type="number" value={contribAmount} onChange={setContribAmount} />
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button onClick={logContribution} style={btnPrimary(t)}>Registrar aportación</button>
+            </div>
+          </>
+        )}
+      </FormSheet>
     </div>
   );
 }

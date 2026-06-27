@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Card, SectionTitle, AnimatedMonoAmount, Row, Input, Select, CollapsibleSection, btnPrimary, btnGhost, btnSmall, iconBtn } from "./ui.jsx";
+import React, { useState, useEffect } from "react";
+import { Card, SectionTitle, AnimatedMonoAmount, Row, Input, Select, FormSheet, CollapsibleSection, btnPrimary, btnGhost, btnSmall, iconBtn } from "./ui.jsx";
 import { EXPENSE_CATEGORIES } from "../utils/constants.js";
 import { fmt, uid, startOfMonth, daysUntil, nextDueDateForDay } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
@@ -10,6 +10,13 @@ export function Pagos({ t, data, update }) {
   const confirm = useConfirm();
   const [form, setForm] = useState({ name: "", amount: "", dayOfMonth: "1", category: "Otros", notes: "" });
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    const handler = () => { resetForm(); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, []);
 
   const list = data.fixedExpenses.map((e) => ({ ...e, due: nextDueDateForDay(e.dayOfMonth, e.lastPaidISO) })).sort((a, b) => a.due - b.due);
   const monthStart = startOfMonth(new Date());
@@ -18,6 +25,7 @@ export function Pagos({ t, data, update }) {
   const proximos = list.filter((e) => { const d = daysUntil(e.due); return d >= 0 && d <= 5; });
 
   function resetForm() { setForm({ name: "", amount: "", dayOfMonth: "1", category: "Otros", notes: "" }); setEditingId(null); }
+  function closeForm() { resetForm(); setShowForm(false); }
   function submit() {
     if (!form.name.trim() || !form.amount) return;
     const dom = Math.min(31, Math.max(1, Number(form.dayOfMonth) || 1));
@@ -25,9 +33,9 @@ export function Pagos({ t, data, update }) {
     const next = editingId ? data.fixedExpenses.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.fixedExpenses, { id: uid(), ...payload, lastPaidISO: null }];
     update({ fixedExpenses: next });
     toast(editingId ? "Pago actualizado" : "Pago agregado");
-    resetForm();
+    closeForm();
   }
-  function edit(e) { setForm({ name: e.name, amount: String(e.amount), dayOfMonth: String(e.dayOfMonth), category: e.category, notes: e.notes || "" }); setEditingId(e.id); }
+  function edit(e) { setForm({ name: e.name, amount: String(e.amount), dayOfMonth: String(e.dayOfMonth), category: e.category, notes: e.notes || "" }); setEditingId(e.id); setShowForm(true); }
   async function remove(id) {
     if (!await confirm("¿Eliminar este pago recurrente?")) return;
     update({ fixedExpenses: data.fixedExpenses.filter((e) => e.id !== id) });
@@ -63,7 +71,6 @@ export function Pagos({ t, data, update }) {
           <SectionTitle t={t}>Alertas</SectionTitle>
           {vencidos.map((e) => <Row key={e.id} t={t} label={`🔴 ${e.name} · vencido hace ${Math.abs(daysUntil(e.due))}d`} value={-e.amount} />)}
           {proximos.map((e) => <Row key={e.id} t={t} label={`🟡 ${e.name} · vence en ${daysUntil(e.due)}d`} value={-e.amount} />)}
-          {vencidos.length === 0 && proximos.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin pagos próximos o vencidos.</div>}
         </Card>
       )}
 
@@ -100,19 +107,6 @@ export function Pagos({ t, data, update }) {
         </CollapsibleSection>
       </Card>
 
-      <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-        <SectionTitle t={t}>{editingId ? "Editar pago" : "Agregar pago recurrente"}</SectionTitle>
-        <Input t={t} placeholder="Nombre (ej. Seguro, Renta, Auto)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-        <Input t={t} placeholder="Monto (USD)" type="number" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} />
-        <Input t={t} placeholder="Día del mes (1-31)" type="number" value={form.dayOfMonth} onChange={(v) => setForm({ ...form, dayOfMonth: v })} />
-        <Select t={t} value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={EXPENSE_CATEGORIES} />
-        <Input t={t} placeholder="Nota (opcional)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
-          {editingId && <button onClick={resetForm} style={btnGhost(t)}>Cancelar</button>}
-        </div>
-      </Card>
-
       <Card t={t}>
         <CollapsibleSection t={t} title="Pagos realizados este mes" count={realizados.length}>
           {realizados.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Ningún pago marcado como realizado todavía este mes.</div>}
@@ -127,6 +121,17 @@ export function Pagos({ t, data, update }) {
           ))}
         </CollapsibleSection>
       </Card>
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar pago" : "Agregar pago recurrente"}>
+        <Input t={t} placeholder="Nombre (ej. Seguro, Renta, Auto)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+        <Input t={t} placeholder="Monto (USD)" type="number" value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} />
+        <Input t={t} placeholder="Día del mes (1-31)" type="number" value={form.dayOfMonth} onChange={(v) => setForm({ ...form, dayOfMonth: v })} />
+        <Select t={t} value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={EXPENSE_CATEGORIES} />
+        <Input t={t} placeholder="Nota (opcional)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
+        </div>
+      </FormSheet>
     </div>
   );
 }

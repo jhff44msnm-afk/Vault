@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Card, SectionTitle, Row, Field, Input, Badge, btnPrimary, btnGhost, iconBtn, pillBtn } from "./ui.jsx";
+import React, { useState, useEffect } from "react";
+import { Card, SectionTitle, Row, Field, Input, Badge, FormSheet, btnPrimary, iconBtn, pillBtn } from "./ui.jsx";
 import { uid, daysUntil } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
 import { useConfirm } from "./ConfirmDialog.jsx";
@@ -11,9 +11,18 @@ export function Seguros({ t, data, update }) {
   const [lifeForm, setLifeForm] = useState({ company: "", premium: "", coverage: "", beneficiaries: "", renewalDateISO: "" });
   const [healthForm, setHealthForm] = useState({ company: "", plan: "", coverage: "", deductible: "", renewalDateISO: "" });
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formSub, setFormSub] = useState("vida");
+
+  useEffect(() => {
+    const handler = () => { resetLife(); resetHealth(); setFormSub(sub); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, [sub]);
 
   function resetLife() { setLifeForm({ company: "", premium: "", coverage: "", beneficiaries: "", renewalDateISO: "" }); setEditingId(null); }
   function resetHealth() { setHealthForm({ company: "", plan: "", coverage: "", deductible: "", renewalDateISO: "" }); setEditingId(null); }
+  function closeForm() { resetLife(); resetHealth(); setShowForm(false); }
 
   function submitLife() {
     if (!lifeForm.company.trim()) return;
@@ -21,7 +30,7 @@ export function Seguros({ t, data, update }) {
     const next = editingId ? data.insuranceLife.map((x) => (x.id === editingId ? { ...x, ...payload } : x)) : [...data.insuranceLife, { id: uid(), ...payload }];
     update({ insuranceLife: next });
     toast(editingId ? "Seguro actualizado" : "Seguro agregado");
-    resetLife();
+    closeForm();
   }
   function submitHealth() {
     if (!healthForm.company.trim()) return;
@@ -29,10 +38,10 @@ export function Seguros({ t, data, update }) {
     const next = editingId ? data.insuranceHealth.map((x) => (x.id === editingId ? { ...x, ...payload } : x)) : [...data.insuranceHealth, { id: uid(), ...payload }];
     update({ insuranceHealth: next });
     toast(editingId ? "Seguro actualizado" : "Seguro agregado");
-    resetHealth();
+    closeForm();
   }
-  function editLife(x) { setLifeForm({ company: x.company, premium: String(x.premium), coverage: x.coverage, beneficiaries: x.beneficiaries, renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); }
-  function editHealth(x) { setHealthForm({ company: x.company, plan: x.plan, coverage: x.coverage, deductible: String(x.deductible), renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); }
+  function editLife(x) { setLifeForm({ company: x.company, premium: String(x.premium), coverage: x.coverage, beneficiaries: x.beneficiaries, renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); setFormSub("vida"); setShowForm(true); }
+  function editHealth(x) { setHealthForm({ company: x.company, plan: x.plan, coverage: x.coverage, deductible: String(x.deductible), renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); setFormSub("medico"); setShowForm(true); }
   async function removeLife(id) {
     if (!await confirm("¿Eliminar este seguro?")) return;
     update({ insuranceLife: data.insuranceLife.filter((x) => x.id !== id) });
@@ -65,6 +74,11 @@ export function Seguros({ t, data, update }) {
 
       {sub === "vida" ? (
         <>
+          {data.insuranceLife.length === 0 && (
+            <Card t={t}>
+              <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>Sin seguros de vida registrados. Toca + para agregar uno.</div>
+            </Card>
+          )}
           {data.insuranceLife.map((x) => (
             <Card t={t} key={x.id}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -83,21 +97,14 @@ export function Seguros({ t, data, update }) {
               </div>
             </Card>
           ))}
-          <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-            <SectionTitle t={t}>{editingId ? "Editar seguro de vida" : "Agregar seguro de vida"}</SectionTitle>
-            <Input t={t} placeholder="Compañía" value={lifeForm.company} onChange={(v) => setLifeForm({ ...lifeForm, company: v })} />
-            <Input t={t} placeholder="Prima (USD)" type="number" value={lifeForm.premium} onChange={(v) => setLifeForm({ ...lifeForm, premium: v })} />
-            <Input t={t} placeholder="Cobertura (ej. $500,000)" value={lifeForm.coverage} onChange={(v) => setLifeForm({ ...lifeForm, coverage: v })} />
-            <Input t={t} placeholder="Beneficiarios" value={lifeForm.beneficiaries} onChange={(v) => setLifeForm({ ...lifeForm, beneficiaries: v })} />
-            <Field t={t} label="Fecha de renovación"><Input t={t} type="date" value={lifeForm.renewalDateISO} onChange={(v) => setLifeForm({ ...lifeForm, renewalDateISO: v })} /></Field>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={submitLife} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
-              {editingId && <button onClick={resetLife} style={btnGhost(t)}>Cancelar</button>}
-            </div>
-          </Card>
         </>
       ) : (
         <>
+          {data.insuranceHealth.length === 0 && (
+            <Card t={t}>
+              <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>Sin seguros médicos registrados. Toca + para agregar uno.</div>
+            </Card>
+          )}
           {data.insuranceHealth.map((x) => (
             <Card t={t} key={x.id}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -116,20 +123,38 @@ export function Seguros({ t, data, update }) {
               </div>
             </Card>
           ))}
-          <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-            <SectionTitle t={t}>{editingId ? "Editar seguro médico" : "Agregar seguro médico"}</SectionTitle>
+        </>
+      )}
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar seguro" : "Agregar seguro"}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <button onClick={() => setFormSub("vida")} style={pillBtn(t, formSub === "vida")}>🛡️ Vida</button>
+          <button onClick={() => setFormSub("medico")} style={pillBtn(t, formSub === "medico")}>⚕️ Médico</button>
+        </div>
+        {formSub === "vida" ? (
+          <>
+            <Input t={t} placeholder="Compañía" value={lifeForm.company} onChange={(v) => setLifeForm({ ...lifeForm, company: v })} />
+            <Input t={t} placeholder="Prima (USD)" type="number" value={lifeForm.premium} onChange={(v) => setLifeForm({ ...lifeForm, premium: v })} />
+            <Input t={t} placeholder="Cobertura (ej. $500,000)" value={lifeForm.coverage} onChange={(v) => setLifeForm({ ...lifeForm, coverage: v })} />
+            <Input t={t} placeholder="Beneficiarios" value={lifeForm.beneficiaries} onChange={(v) => setLifeForm({ ...lifeForm, beneficiaries: v })} />
+            <Field t={t} label="Fecha de renovación"><Input t={t} type="date" value={lifeForm.renewalDateISO} onChange={(v) => setLifeForm({ ...lifeForm, renewalDateISO: v })} /></Field>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+              <button onClick={submitLife} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
+            </div>
+          </>
+        ) : (
+          <>
             <Input t={t} placeholder="Compañía" value={healthForm.company} onChange={(v) => setHealthForm({ ...healthForm, company: v })} />
             <Input t={t} placeholder="Plan" value={healthForm.plan} onChange={(v) => setHealthForm({ ...healthForm, plan: v })} />
             <Input t={t} placeholder="Cobertura" value={healthForm.coverage} onChange={(v) => setHealthForm({ ...healthForm, coverage: v })} />
             <Input t={t} placeholder="Deducible (USD)" type="number" value={healthForm.deductible} onChange={(v) => setHealthForm({ ...healthForm, deductible: v })} />
             <Field t={t} label="Fecha de renovación"><Input t={t} type="date" value={healthForm.renewalDateISO} onChange={(v) => setHealthForm({ ...healthForm, renewalDateISO: v })} /></Field>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
               <button onClick={submitHealth} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
-              {editingId && <button onClick={resetHealth} style={btnGhost(t)}>Cancelar</button>}
             </div>
-          </Card>
-        </>
-      )}
+          </>
+        )}
+      </FormSheet>
     </div>
   );
 }

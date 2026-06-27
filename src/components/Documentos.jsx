@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { Card, SectionTitle, Input, Select, TextArea, CollapsibleSection, btnPrimary, btnGhost, iconBtn } from "./ui.jsx";
+import React, { useState, useEffect, useRef } from "react";
+import { Card, SectionTitle, Input, Select, TextArea, CollapsibleSection, FormSheet, btnPrimary, btnGhost, iconBtn } from "./ui.jsx";
 import { STATEMENT_CATEGORIES } from "../utils/constants.js";
 import { uid } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
@@ -10,17 +10,25 @@ export function Documentos({ t, data, update }) {
   const confirm = useConfirm();
   const [form, setForm] = useState({ name: "", category: "Tarjeta de crédito", dateISO: new Date().toISOString().slice(0, 10), notes: "", fileName: "" });
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   const fileRef = useRef(null);
 
+  useEffect(() => {
+    const handler = () => { resetForm(); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, []);
+
   function resetForm() { setForm({ name: "", category: "Tarjeta de crédito", dateISO: new Date().toISOString().slice(0, 10), notes: "", fileName: "" }); setEditingId(null); }
+  function closeForm() { resetForm(); setShowForm(false); }
   function submit() {
     if (!form.name.trim()) return;
     const next = editingId ? data.statements.map((s) => (s.id === editingId ? { ...s, ...form } : s)) : [...data.statements, { id: uid(), ...form }];
     update({ statements: next });
     toast(editingId ? "Documento actualizado" : "Documento guardado");
-    resetForm();
+    closeForm();
   }
-  function edit(s) { setForm({ name: s.name, category: s.category, dateISO: s.dateISO, notes: s.notes || "", fileName: s.fileName || "" }); setEditingId(s.id); }
+  function edit(s) { setForm({ name: s.name, category: s.category, dateISO: s.dateISO, notes: s.notes || "", fileName: s.fileName || "" }); setEditingId(s.id); setShowForm(true); }
   async function remove(id) {
     if (!await confirm("¿Eliminar este documento?")) return;
     update({ statements: data.statements.filter((s) => s.id !== id) });
@@ -37,26 +45,9 @@ export function Documentos({ t, data, update }) {
         Guarda una referencia de cada estado de cuenta y anota manualmente lo importante (saldo, vencimiento, cargos a revisar). La extracción automática (OCR) queda lista para una versión futura.
       </div>
 
-      <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-        <SectionTitle t={t}>{editingId ? "Editar registro" : "Adjuntar estado de cuenta"}</SectionTitle>
-        <Input t={t} placeholder="Nombre (ej. BBVA Crédito Oro - Junio)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-        <Select t={t} value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={STATEMENT_CATEGORIES} />
-        <Input t={t} type="date" value={form.dateISO} onChange={(v) => setForm({ ...form, dateISO: v })} />
-        <button onClick={() => fileRef.current?.click()} style={{ ...btnGhost(t), width: "100%", marginBottom: 8 }}>
-          {form.fileName ? `Archivo: ${form.fileName}` : "Seleccionar archivo (PDF o imagen)"}
-        </button>
-        <input ref={fileRef} type="file" accept=".pdf,image/*" onChange={onFilePicked} style={{ display: "none" }} />
-        <div style={{ fontSize: 10.5, color: t.textDim, marginBottom: 8 }}>Por ahora solo se guarda el nombre del archivo como referencia; consérvalo en tu teléfono o Drive.</div>
-        <TextArea t={t} placeholder="Notas (saldo, fecha límite de pago, cargos a revisar...)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Guardar"}</button>
-          {editingId && <button onClick={resetForm} style={btnGhost(t)}>Cancelar</button>}
-        </div>
-      </Card>
-
       <Card t={t}>
         <CollapsibleSection t={t} title="Historial" count={sorted.length}>
-          {sorted.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin estados de cuenta registrados.</div>}
+          {sorted.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin estados de cuenta registrados. Toca + para agregar uno.</div>}
           {sorted.map((s) => (
             <div key={s.id} style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -72,6 +63,21 @@ export function Documentos({ t, data, update }) {
           ))}
         </CollapsibleSection>
       </Card>
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar registro" : "Adjuntar estado de cuenta"}>
+        <Input t={t} placeholder="Nombre (ej. BBVA Crédito Oro - Junio)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+        <Select t={t} value={form.category} onChange={(v) => setForm({ ...form, category: v })} options={STATEMENT_CATEGORIES} />
+        <Input t={t} type="date" value={form.dateISO} onChange={(v) => setForm({ ...form, dateISO: v })} />
+        <button onClick={() => fileRef.current?.click()} style={{ ...btnGhost(t), width: "100%", marginBottom: 8 }}>
+          {form.fileName ? `Archivo: ${form.fileName}` : "Seleccionar archivo (PDF o imagen)"}
+        </button>
+        <input ref={fileRef} type="file" accept=".pdf,image/*" onChange={onFilePicked} style={{ display: "none" }} />
+        <div style={{ fontSize: 10.5, color: t.textDim, marginBottom: 8 }}>Por ahora solo se guarda el nombre del archivo como referencia; consérvalo en tu teléfono o Drive.</div>
+        <TextArea t={t} placeholder="Notas (saldo, fecha límite de pago, cargos a revisar...)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Guardar"}</button>
+        </div>
+      </FormSheet>
     </div>
   );
 }
