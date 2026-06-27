@@ -4,10 +4,6 @@ import { DEFAULT_DATA, migrateOldData } from "../utils/calculations.js";
 const STORAGE_KEY = "vault-app-data-v2";
 const OLD_STORAGE_KEY = "vault-app-data";
 
-/**
- * Persistencia local con localStorage (preparado para migrar a Supabase/Firebase
- * más adelante: solo hay que cambiar el cuerpo de `save` y la carga inicial).
- */
 export function useVaultData() {
   const [data, setData] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -42,9 +38,7 @@ export function useVaultData() {
     setData(next);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // Almacenamiento lleno o no disponible (modo privado, etc.) — se ignora.
-    }
+    } catch {}
   }, []);
 
   return { data, save, loaded, justMigrated };

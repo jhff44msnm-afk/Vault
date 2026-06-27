@@ -14,31 +14,31 @@ export function Dashboard({ t, data }) {
   const today = new Date();
   const allExpenses = useMemo(() => [...data.variableExpenses, ...data.paymentLog], [data.variableExpenses, data.paymentLog]);
 
-  const totalIngresos = data.incomes.reduce((s, x) => s + Number(x.amount || 0), 0);
-  const totalGastos = allExpenses.reduce((s, x) => s + Number(x.amount || 0), 0);
-  const saldoDisponible = totalIngresos - totalGastos;
+  const totalIncome = data.incomes.reduce((s, x) => s + Number(x.amount || 0), 0);
+  const totalExpenses = allExpenses.reduce((s, x) => s + Number(x.amount || 0), 0);
+  const availableBalance = totalIncome - totalExpenses;
 
   const todayStr = today.toISOString().slice(0, 10);
-  const gastoHoy = allExpenses.filter((x) => x.dateISO === todayStr).reduce((s, x) => s + Number(x.amount || 0), 0);
+  const spentToday = allExpenses.filter((x) => x.dateISO === todayStr).reduce((s, x) => s + Number(x.amount || 0), 0);
   const monthStart = startOfMonth(today);
-  const diaDelMes = today.getDate();
-  const gastadoMes = allExpenses.filter((x) => new Date(x.dateISO) >= monthStart).reduce((s, x) => s + Number(x.amount || 0), 0);
-  const ingresosMes = data.incomes.filter((x) => new Date(x.dateISO) >= monthStart).reduce((s, x) => s + Number(x.amount || 0), 0);
-  const promedioDiario = gastadoMes / diaDelMes;
-  const saldoDisponibleMes = ingresosMes - gastadoMes;
-  const diasRestantesMes = Math.max(1, daysInMonth(today) - diaDelMes + 1);
-  const saldoRestanteDiario = saldoDisponibleMes / diasRestantesMes;
+  const dayOfMonth = today.getDate();
+  const spentThisMonth = allExpenses.filter((x) => new Date(x.dateISO) >= monthStart).reduce((s, x) => s + Number(x.amount || 0), 0);
+  const incomeThisMonth = data.incomes.filter((x) => new Date(x.dateISO) >= monthStart).reduce((s, x) => s + Number(x.amount || 0), 0);
+  const dailyAvg = spentThisMonth / dayOfMonth;
+  const monthBalance = incomeThisMonth - spentThisMonth;
+  const daysRemaining = Math.max(1, daysInMonth(today) - dayOfMonth + 1);
+  const dailyBudgetRemaining = monthBalance / daysRemaining;
 
   const monthly = useMemo(() => buildMonthlySeries(data, 6), [data]);
-  const periodoIngresos = monthly.reduce((s, m) => s + m.ingresos, 0);
-  const periodoGastos = monthly.reduce((s, m) => s + m.gastos, 0);
-  const periodoBalance = periodoIngresos - periodoGastos;
-  const primeraMitad = (monthly[0].balance + monthly[1].balance + monthly[2].balance) / 3;
-  const segundaMitad = (monthly[3].balance + monthly[4].balance + monthly[5].balance) / 3;
-  const tendencia = segundaMitad > primeraMitad * 1.05 ? "Mejorando" : segundaMitad < primeraMitad * 0.95 ? "Empeorando" : "Estable";
-  const tendenciaColor = tendencia === "Mejorando" ? t.green : tendencia === "Empeorando" ? t.red : t.gold;
+  const periodIncome = monthly.reduce((s, m) => s + m.income, 0);
+  const periodExpenses = monthly.reduce((s, m) => s + m.expenses, 0);
+  const periodBalance = periodIncome - periodExpenses;
+  const firstHalf = (monthly[0].balance + monthly[1].balance + monthly[2].balance) / 3;
+  const secondHalf = (monthly[3].balance + monthly[4].balance + monthly[5].balance) / 3;
+  const trend = secondHalf > firstHalf * 1.05 ? "Improving" : secondHalf < firstHalf * 0.95 ? "Declining" : "Stable";
+  const trendColor = trend === "Improving" ? t.green : trend === "Declining" ? t.red : t.gold;
 
-  const patrimonioSeries = useMemo(() => buildPatrimonioSeries(data, 6), [data]);
+  const netWorthSeries = useMemo(() => buildPatrimonioSeries(data, 6), [data]);
   const currentMonthCats = useMemo(() => {
     return EXPENSE_CATEGORIES.map((c) => ({ name: c, value: allExpenses.filter((e) => e.category === c && new Date(e.dateISO) >= monthStart).reduce((s, e) => s + Number(e.amount || 0), 0) })).filter((c) => c.value > 0);
   }, [allExpenses]);
@@ -49,36 +49,36 @@ export function Dashboard({ t, data }) {
   return (
     <div>
       <Card t={t} style={{ textAlign: "center" }}>
-        <SectionTitle t={t}>Saldo disponible</SectionTitle>
-        <AnimatedMonoAmount t={t} value={saldoDisponible} size={30} color={saldoDisponible >= 0 ? t.green : t.red} />
-        <div style={{ fontSize: 11, color: t.textDim, marginTop: 6 }}>Ingresos totales − gastos totales (todo el historial registrado)</div>
+        <SectionTitle t={t}>Available Balance</SectionTitle>
+        <AnimatedMonoAmount t={t} value={availableBalance} size={30} color={availableBalance >= 0 ? t.green : t.red} />
+        <div style={{ fontSize: 11, color: t.textDim, marginTop: 6 }}>Total income − total expenses (all recorded history)</div>
       </Card>
 
       <Card t={t}>
-        <SectionTitle t={t}>Hoy</SectionTitle>
-        <Row t={t} label="Gastado hoy" value={-gastoHoy} />
-        <Row t={t} label="Promedio diario del mes" value={-promedioDiario} />
-        <Row t={t} label="Saldo restante / día (resto del mes)" value={saldoRestanteDiario} />
+        <SectionTitle t={t}>Today</SectionTitle>
+        <Row t={t} label="Spent today" value={-spentToday} />
+        <Row t={t} label="Daily average this month" value={-dailyAvg} />
+        <Row t={t} label="Remaining daily budget" value={dailyBudgetRemaining} />
       </Card>
 
       <Card t={t}>
-        <SectionTitle t={t}>Este mes</SectionTitle>
-        <Row t={t} label="Ingresos del mes" value={ingresosMes} />
-        <Row t={t} label="Gastado del mes" value={-gastadoMes} />
+        <SectionTitle t={t}>This Month</SectionTitle>
+        <Row t={t} label="Income" value={incomeThisMonth} />
+        <Row t={t} label="Spent" value={-spentThisMonth} />
         <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 13, color: t.textDim }}>Saldo disponible del mes</span>
-          <AnimatedMonoAmount t={t} value={saldoDisponibleMes} color={saldoDisponibleMes >= 0 ? t.green : t.red} />
+          <span style={{ fontSize: 13, color: t.textDim }}>Month balance</span>
+          <AnimatedMonoAmount t={t} value={monthBalance} color={monthBalance >= 0 ? t.green : t.red} />
         </div>
       </Card>
 
       <Card t={t}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <SectionTitle t={t}>Últimos 6 meses</SectionTitle>
-          <Badge t={t} color={tendenciaColor} pulse>{tendencia}</Badge>
+          <SectionTitle t={t}>Last 6 Months</SectionTitle>
+          <Badge t={t} color={trendColor} pulse>{trend}</Badge>
         </div>
-        <Row t={t} label="Total ingresado" value={periodoIngresos} />
-        <Row t={t} label="Total gastado" value={-periodoGastos} />
-        <Row t={t} label="Balance neto" value={periodoBalance} />
+        <Row t={t} label="Total income" value={periodIncome} />
+        <Row t={t} label="Total spent" value={-periodExpenses} />
+        <Row t={t} label="Net balance" value={periodBalance} />
         <ResponsiveContainer width="100%" height={160}>
           <BarChart data={monthly}>
             <CartesianGrid stroke={t.border} strokeDasharray="3 3" />
@@ -86,31 +86,31 @@ export function Dashboard({ t, data }) {
             <YAxis tick={{ fontSize: 10, fill: t.textDim }} tickFormatter={(v) => "$" + (v / 1000).toFixed(0) + "k"} width={42} />
             <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: t.bgElev, border: `1px solid ${t.border}`, fontSize: 12 }} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="ingresos" name="Ingresos" fill={t.green} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="gastos" name="Gastos" fill={t.red} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="income" name="Income" fill={t.green} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="expenses" name="Expenses" fill={t.red} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Card>
 
       <Card t={t}>
-        <SectionTitle t={t}>Evolución de patrimonio (estimado)</SectionTitle>
+        <SectionTitle t={t}>Net Worth (estimated)</SectionTitle>
         <ResponsiveContainer width="100%" height={150}>
-          <LineChart data={patrimonioSeries}>
+          <LineChart data={netWorthSeries}>
             <CartesianGrid stroke={t.border} strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: t.textDim }} />
             <YAxis tick={{ fontSize: 10, fill: t.textDim }} tickFormatter={(v) => "$" + (v / 1000).toFixed(0) + "k"} width={42} />
             <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: t.bgElev, border: `1px solid ${t.border}`, fontSize: 12 }} />
-            <Line type="monotone" dataKey="patrimonio" stroke={t.gold} strokeWidth={2.5} dot={false} />
+            <Line type="monotone" dataKey="netWorth" stroke={t.gold} strokeWidth={2.5} dot={false} />
           </LineChart>
         </ResponsiveContainer>
         <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 6, lineHeight: 1.4 }}>
-          Saldo acumulado de tu historial + valor actual de inversiones + saldo AFORE. Las inversiones se aplican a su valor de hoy (no histórico), así que es una estimación.
+          Cumulative balance from your history + current investment value + retirement balance. Investments use today's value (not historical), so this is an estimate.
         </div>
       </Card>
 
       {currentMonthCats.length > 0 && (
         <Card t={t}>
-          <SectionTitle t={t}>Gastos del mes por categoría</SectionTitle>
+          <SectionTitle t={t}>Monthly Spending by Category</SectionTitle>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie data={currentMonthCats} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name }) => name}>
@@ -124,14 +124,14 @@ export function Dashboard({ t, data }) {
 
       {upcoming.length > 0 && (
         <Card t={t}>
-          <SectionTitle t={t}>Próximos pagos (7 días)</SectionTitle>
+          <SectionTitle t={t}>Upcoming Bills (7 days)</SectionTitle>
           {upcoming.map((e) => {
             const d = daysUntil(e.due);
             return (
               <div key={e.id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}>
                 <span>{e.name}</span>
                 <span style={{ color: d < 0 ? t.red : d <= 2 ? t.gold : t.textDim, fontFamily: "ui-monospace, monospace" }}>
-                  {d < 0 ? `vencido hace ${Math.abs(d)}d` : d === 0 ? "hoy" : `en ${d}d`} · {fmt(e.amount)}
+                  {d < 0 ? `overdue ${Math.abs(d)}d` : d === 0 ? "today" : `in ${d}d`} · {fmt(e.amount)}
                 </span>
               </div>
             );
@@ -141,7 +141,7 @@ export function Dashboard({ t, data }) {
 
       {activeGoals.length > 0 && (
         <Card t={t}>
-          <SectionTitle t={t}>Metas en curso</SectionTitle>
+          <SectionTitle t={t}>Active Goals</SectionTitle>
           {activeGoals.map((g) => {
             const p = Math.min(100, (g.savedAmount / g.targetAmount) * 100);
             return (

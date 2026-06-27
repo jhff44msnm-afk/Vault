@@ -49,7 +49,7 @@ export default function App() {
       <div style={{ background: THEME.dark.bg, minHeight: "100vh", fontFamily: "system-ui" }}>
         <div style={{ borderBottom: `1px solid ${THEME.dark.border}`, padding: "16px 18px", background: THEME.dark.bgElev }}>
           <div style={{ fontSize: 11, letterSpacing: 3, color: THEME.dark.gold, fontWeight: 700 }}>VAULT</div>
-          <div style={{ fontSize: 13, color: THEME.dark.textDim, marginTop: 2 }}>Tu bóveda financiera</div>
+          <div style={{ fontSize: 13, color: THEME.dark.textDim, marginTop: 2 }}>Your financial vault</div>
         </div>
         <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 14px" }}>
           <LoadingSkeleton t={THEME.dark} />
@@ -64,14 +64,14 @@ export default function App() {
   const update = (patch) => save({ ...data, ...patch });
 
   const tabs = [
-    { id: "dashboard", label: "Panel", icon: "🏛️" },
-    { id: "movimientos", label: "Movimientos", icon: "💱" },
-    { id: "pagos", label: "Pagos", icon: "✅" },
-    { id: "metas", label: "Metas", icon: "🎯" },
-    { id: "inversion", label: "Inversión", icon: "📈" },
-    { id: "pension", label: "Pensión", icon: "🏦" },
-    { id: "seguros", label: "Seguros", icon: "🛡️" },
-    { id: "documentos", label: "Documentos", icon: "📎" },
+    { id: "dashboard", label: "Dashboard", icon: "🏛️" },
+    { id: "movimientos", label: "Transactions", icon: "💱" },
+    { id: "pagos", label: "Bills", icon: "✅" },
+    { id: "metas", label: "Goals", icon: "🎯" },
+    { id: "inversion", label: "Investments", icon: "📈" },
+    { id: "pension", label: "Retirement", icon: "🏦" },
+    { id: "seguros", label: "Insurance", icon: "🛡️" },
+    { id: "documentos", label: "Statements", icon: "📎" },
   ];
 
   return (
@@ -82,11 +82,11 @@ export default function App() {
           <div style={{ maxWidth: 480, margin: "0 auto", padding: "12px 14px" }}>
             {justMigrated && !bannerDismissed && (
               <Card t={t} style={{ borderColor: t.gold }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: t.gold, marginBottom: 4 }}>Datos migrados ✓</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.gold, marginBottom: 4 }}>Data migrated ✓</div>
                 <div style={{ fontSize: 12, color: t.textDim, lineHeight: 1.5 }}>
-                  Tus gastos fijos, variables y metas se trajeron de tu VAULT anterior. Revisa el día de pago de cada Pago recurrente — antes funcionaban por intervalo de días, ahora son por fecha fija del mes.
+                  Your fixed expenses, variable expenses, and goals were imported from your previous VAULT. Review the payment day for each recurring bill — they now use a fixed day of the month.
                 </div>
-                <button onClick={() => setBannerDismissed(true)} style={{ ...btnGhost(t), marginTop: 8, fontSize: 11, padding: "6px 10px" }}>Entendido</button>
+                <button onClick={() => setBannerDismissed(true)} style={{ ...btnGhost(t), marginTop: 8, fontSize: 11, padding: "6px 10px" }}>Got it</button>
               </Card>
             )}
             {configOpen && <ConfigPanel t={t} data={data} update={update} close={() => setConfigOpen(false)} />}

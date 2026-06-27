@@ -7,12 +7,12 @@ import { useConfirm } from "./ConfirmDialog.jsx";
 export function Seguros({ t, data, update }) {
   const toast = useToast();
   const confirm = useConfirm();
-  const [sub, setSub] = useState("vida");
+  const [sub, setSub] = useState("life");
   const [lifeForm, setLifeForm] = useState({ company: "", premium: "", coverage: "", beneficiaries: "", renewalDateISO: "" });
   const [healthForm, setHealthForm] = useState({ company: "", plan: "", coverage: "", deductible: "", renewalDateISO: "" });
   const [editingId, setEditingId] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [formSub, setFormSub] = useState("vida");
+  const [formSub, setFormSub] = useState("life");
 
   useEffect(() => {
     const handler = () => { resetLife(); resetHealth(); setFormSub(sub); setShowForm(true); };
@@ -29,7 +29,7 @@ export function Seguros({ t, data, update }) {
     const payload = { ...lifeForm, premium: Number(lifeForm.premium) || 0 };
     const next = editingId ? data.insuranceLife.map((x) => (x.id === editingId ? { ...x, ...payload } : x)) : [...data.insuranceLife, { id: uid(), ...payload }];
     update({ insuranceLife: next });
-    toast(editingId ? "Seguro actualizado" : "Seguro agregado");
+    toast(editingId ? "Insurance updated" : "Insurance added");
     closeForm();
   }
   function submitHealth() {
@@ -37,29 +37,29 @@ export function Seguros({ t, data, update }) {
     const payload = { ...healthForm, deductible: Number(healthForm.deductible) || 0 };
     const next = editingId ? data.insuranceHealth.map((x) => (x.id === editingId ? { ...x, ...payload } : x)) : [...data.insuranceHealth, { id: uid(), ...payload }];
     update({ insuranceHealth: next });
-    toast(editingId ? "Seguro actualizado" : "Seguro agregado");
+    toast(editingId ? "Insurance updated" : "Insurance added");
     closeForm();
   }
-  function editLife(x) { setLifeForm({ company: x.company, premium: String(x.premium), coverage: x.coverage, beneficiaries: x.beneficiaries, renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); setFormSub("vida"); setShowForm(true); }
-  function editHealth(x) { setHealthForm({ company: x.company, plan: x.plan, coverage: x.coverage, deductible: String(x.deductible), renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); setFormSub("medico"); setShowForm(true); }
+  function editLife(x) { setLifeForm({ company: x.company, premium: String(x.premium), coverage: x.coverage, beneficiaries: x.beneficiaries, renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); setFormSub("life"); setShowForm(true); }
+  function editHealth(x) { setHealthForm({ company: x.company, plan: x.plan, coverage: x.coverage, deductible: String(x.deductible), renewalDateISO: x.renewalDateISO || "" }); setEditingId(x.id); setFormSub("health"); setShowForm(true); }
   async function removeLife(id) {
-    if (!await confirm("¿Eliminar este seguro?")) return;
+    if (!await confirm("Delete this insurance?")) return;
     update({ insuranceLife: data.insuranceLife.filter((x) => x.id !== id) });
     if (editingId === id) resetLife();
-    toast("Seguro eliminado");
+    toast("Insurance deleted");
   }
   async function removeHealth(id) {
-    if (!await confirm("¿Eliminar este seguro?")) return;
+    if (!await confirm("Delete this insurance?")) return;
     update({ insuranceHealth: data.insuranceHealth.filter((x) => x.id !== id) });
     if (editingId === id) resetHealth();
-    toast("Seguro eliminado");
+    toast("Insurance deleted");
   }
 
   function renewalBadge(dateISO) {
     if (!dateISO) return null;
     const d = daysUntil(new Date(dateISO));
     const color = d < 0 ? t.red : d <= 30 ? t.gold : t.green;
-    const label = d < 0 ? `venció hace ${Math.abs(d)}d` : d === 0 ? "renueva hoy" : `renueva en ${d}d`;
+    const label = d < 0 ? `expired ${Math.abs(d)}d ago` : d === 0 ? "renews today" : `renews in ${d}d`;
     return <Badge t={t} color={color} pulse={d <= 30}>{label}</Badge>;
   }
 
@@ -67,16 +67,16 @@ export function Seguros({ t, data, update }) {
     <div>
       <Card t={t}>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => { setSub("vida"); setEditingId(null); }} style={pillBtn(t, sub === "vida")}>🛡️ Vida</button>
-          <button onClick={() => { setSub("medico"); setEditingId(null); }} style={pillBtn(t, sub === "medico")}>⚕️ Médico</button>
+          <button onClick={() => { setSub("life"); setEditingId(null); }} style={pillBtn(t, sub === "life")}>🛡️ Life</button>
+          <button onClick={() => { setSub("health"); setEditingId(null); }} style={pillBtn(t, sub === "health")}>⚕️ Health</button>
         </div>
       </Card>
 
-      {sub === "vida" ? (
+      {sub === "life" ? (
         <>
           {data.insuranceLife.length === 0 && (
             <Card t={t}>
-              <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>Sin seguros de vida registrados. Toca + para agregar uno.</div>
+              <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>No life insurance policies registered. Tap + to add one.</div>
             </Card>
           )}
           {data.insuranceLife.map((x) => (
@@ -88,11 +88,11 @@ export function Seguros({ t, data, update }) {
                   <button onClick={() => removeLife(x.id)} style={iconBtn(t)}>🗑️</button>
                 </div>
               </div>
-              <Row t={t} label="Prima" value={x.premium} />
-              <Row t={t} label="Cobertura" valueNode={<span>{x.coverage}</span>} />
-              <Row t={t} label="Beneficiarios" valueNode={<span>{x.beneficiaries}</span>} />
+              <Row t={t} label="Premium" value={x.premium} />
+              <Row t={t} label="Coverage" valueNode={<span>{x.coverage}</span>} />
+              <Row t={t} label="Beneficiaries" valueNode={<span>{x.beneficiaries}</span>} />
               <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: t.textDim }}>Renovación: {x.renewalDateISO || "—"}</span>
+                <span style={{ fontSize: 11, color: t.textDim }}>Renewal: {x.renewalDateISO || "—"}</span>
                 {renewalBadge(x.renewalDateISO)}
               </div>
             </Card>
@@ -102,7 +102,7 @@ export function Seguros({ t, data, update }) {
         <>
           {data.insuranceHealth.length === 0 && (
             <Card t={t}>
-              <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>Sin seguros médicos registrados. Toca + para agregar uno.</div>
+              <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>No health insurance policies registered. Tap + to add one.</div>
             </Card>
           )}
           {data.insuranceHealth.map((x) => (
@@ -115,10 +115,10 @@ export function Seguros({ t, data, update }) {
                 </div>
               </div>
               <Row t={t} label="Plan" valueNode={<span>{x.plan}</span>} />
-              <Row t={t} label="Cobertura" valueNode={<span>{x.coverage}</span>} />
-              <Row t={t} label="Deducible" value={x.deductible} />
+              <Row t={t} label="Coverage" valueNode={<span>{x.coverage}</span>} />
+              <Row t={t} label="Deductible" value={x.deductible} />
               <div style={{ marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: t.textDim }}>Renovación: {x.renewalDateISO || "—"}</span>
+                <span style={{ fontSize: 11, color: t.textDim }}>Renewal: {x.renewalDateISO || "—"}</span>
                 {renewalBadge(x.renewalDateISO)}
               </div>
             </Card>
@@ -126,31 +126,31 @@ export function Seguros({ t, data, update }) {
         </>
       )}
 
-      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar seguro" : "Agregar seguro"}>
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Edit Insurance" : "Add Insurance"}>
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <button onClick={() => setFormSub("vida")} style={pillBtn(t, formSub === "vida")}>🛡️ Vida</button>
-          <button onClick={() => setFormSub("medico")} style={pillBtn(t, formSub === "medico")}>⚕️ Médico</button>
+          <button onClick={() => setFormSub("life")} style={pillBtn(t, formSub === "life")}>🛡️ Life</button>
+          <button onClick={() => setFormSub("health")} style={pillBtn(t, formSub === "health")}>⚕️ Health</button>
         </div>
-        {formSub === "vida" ? (
+        {formSub === "life" ? (
           <>
-            <Input t={t} placeholder="Compañía" value={lifeForm.company} onChange={(v) => setLifeForm({ ...lifeForm, company: v })} />
-            <Input t={t} placeholder="Prima (USD)" type="number" value={lifeForm.premium} onChange={(v) => setLifeForm({ ...lifeForm, premium: v })} />
-            <Input t={t} placeholder="Cobertura (ej. $500,000)" value={lifeForm.coverage} onChange={(v) => setLifeForm({ ...lifeForm, coverage: v })} />
-            <Input t={t} placeholder="Beneficiarios" value={lifeForm.beneficiaries} onChange={(v) => setLifeForm({ ...lifeForm, beneficiaries: v })} />
-            <Field t={t} label="Fecha de renovación"><Input t={t} type="date" value={lifeForm.renewalDateISO} onChange={(v) => setLifeForm({ ...lifeForm, renewalDateISO: v })} /></Field>
+            <Input t={t} placeholder="Company" value={lifeForm.company} onChange={(v) => setLifeForm({ ...lifeForm, company: v })} />
+            <Input t={t} placeholder="Premium (USD)" type="number" value={lifeForm.premium} onChange={(v) => setLifeForm({ ...lifeForm, premium: v })} />
+            <Input t={t} placeholder="Coverage (e.g. $500,000)" value={lifeForm.coverage} onChange={(v) => setLifeForm({ ...lifeForm, coverage: v })} />
+            <Input t={t} placeholder="Beneficiaries" value={lifeForm.beneficiaries} onChange={(v) => setLifeForm({ ...lifeForm, beneficiaries: v })} />
+            <Field t={t} label="Renewal date"><Input t={t} type="date" value={lifeForm.renewalDateISO} onChange={(v) => setLifeForm({ ...lifeForm, renewalDateISO: v })} /></Field>
             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button onClick={submitLife} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
+              <button onClick={submitLife} style={btnPrimary(t)}>{editingId ? "Save changes" : "Add"}</button>
             </div>
           </>
         ) : (
           <>
-            <Input t={t} placeholder="Compañía" value={healthForm.company} onChange={(v) => setHealthForm({ ...healthForm, company: v })} />
+            <Input t={t} placeholder="Company" value={healthForm.company} onChange={(v) => setHealthForm({ ...healthForm, company: v })} />
             <Input t={t} placeholder="Plan" value={healthForm.plan} onChange={(v) => setHealthForm({ ...healthForm, plan: v })} />
-            <Input t={t} placeholder="Cobertura" value={healthForm.coverage} onChange={(v) => setHealthForm({ ...healthForm, coverage: v })} />
-            <Input t={t} placeholder="Deducible (USD)" type="number" value={healthForm.deductible} onChange={(v) => setHealthForm({ ...healthForm, deductible: v })} />
-            <Field t={t} label="Fecha de renovación"><Input t={t} type="date" value={healthForm.renewalDateISO} onChange={(v) => setHealthForm({ ...healthForm, renewalDateISO: v })} /></Field>
+            <Input t={t} placeholder="Coverage" value={healthForm.coverage} onChange={(v) => setHealthForm({ ...healthForm, coverage: v })} />
+            <Input t={t} placeholder="Deductible (USD)" type="number" value={healthForm.deductible} onChange={(v) => setHealthForm({ ...healthForm, deductible: v })} />
+            <Field t={t} label="Renewal date"><Input t={t} type="date" value={healthForm.renewalDateISO} onChange={(v) => setHealthForm({ ...healthForm, renewalDateISO: v })} /></Field>
             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button onClick={submitHealth} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
+              <button onClick={submitHealth} style={btnPrimary(t)}>{editingId ? "Save changes" : "Add"}</button>
             </div>
           </>
         )}
