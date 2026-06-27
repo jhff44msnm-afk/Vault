@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, SectionTitle, Input, Select, TextArea, CollapsibleSection, FormSheet, btnPrimary, btnGhost, btnSmall, iconBtn, Badge, Row, ProgressBar } from "./ui.jsx";
-import { STATEMENT_CATEGORIES, EXPENSE_CATEGORIES, CAT_COLORS } from "../utils/constants.js";
+import { STATEMENT_CATEGORIES, EXPENSE_CATEGORIES, INCOME_CATEGORIES, CAT_COLORS } from "../utils/constants.js";
 import { uid, fmt } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
 import { useConfirm } from "./ConfirmDialog.jsx";
@@ -21,6 +21,11 @@ export function Documentos({ t, data, update }) {
   const [importStats, setImportStats] = useState(null);
   const [tips, setTips] = useState([]);
   const pdfRef = useRef(null);
+
+  const [showCategorize, setShowCategorize] = useState(false);
+  const [txnCategories, setTxnCategories] = useState({});
+  const [recurringCandidates, setRecurringCandidates] = useState([]);
+  const [selectedRecurring, setSelectedRecurring] = useState({});
 
   useEffect(() => {
     const handler = () => { resetForm(); setShowForm(true); };
@@ -46,6 +51,18 @@ export function Documentos({ t, data, update }) {
   }
   function onFilePicked(e) { const f = e.target.files?.[0]; if (f) setForm({ ...form, fileName: f.name }); }
 
+  function applySavedMappings(txns) {
+    const mappings = data.categoryMappings || {};
+    return txns.map((txn) => {
+      const key = txn.name.toLowerCase().replace(/\s+/g, " ").trim();
+      if (mappings[key]) return { ...txn, category: mappings[key] };
+      for (const [saved, cat] of Object.entries(mappings)) {
+        if (key.includes(saved) || saved.includes(key)) return { ...txn, category: cat };
+      }
+      return txn;
+    });
+  }
+
   async function onPDFUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -58,6 +75,9 @@ export function Documentos({ t, data, update }) {
     setSelectedTxns({});
     setImportStats(null);
     setTips([]);
+    setShowCategorize(false);
+    setRecurringCandidates([]);
+    setSelectedRecurring({});
     try {
       let rows;
       try {
@@ -78,17 +98,33 @@ export function Documentos({ t, data, update }) {
         }
       }
       const raw = parseTransactions(rows);
-      const withDups = findDuplicates(raw, data.variableExpenses, data.incomes);
+      const withMappings = applySavedMappings(raw);
+      const withDups = findDuplicates(withMappings, data.variableExpenses, data.incomes);
       const initial = {};
       withDups.forEach((txn, i) => { initial[i] = !txn.isDuplicate; });
       setParsedTxns(withDups);
       setSelectedTxns(initial);
 
+      const cats = {};
+      withDups.forEach((txn, i) => { cats[i] = txn.category; });
+      setTxnCategories(cats);
+
       const allExpenses = [...data.variableExpenses, ...withDups.filter((tx) => tx.type === "expense")];
       setTips(analyzeSpending(allExpenses));
 
+      // Auto-save to Statement History
+      const statementEntry = {
+        id: uid(),
+        name: file.name.replace(/\.pdf$/i, ""),
+        category: "Bank Account",
+        dateISO: new Date().toISOString().slice(0, 10),
+        notes: `${withDups.length} transactions extracted`,
+        fileName: file.name,
+      };
+      update({ statements: [...data.statements, statementEntry] });
+
       if (withDups.length === 0) toast("No transactions found in this PDF. Try a different statement.");
-      else toast(`Found ${withDups.length} transactions`);
+      else toast(`Found ${withDups.length} transactions. Review categories below.`);
     } catch (err) {
       toast("Error reading PDF: " + (err.message || "Unknown error"), "error");
     }
@@ -113,34 +149,103 @@ export function Documentos({ t, data, update }) {
     setSelectedTxns(next);
   }
 
+  function updateTxnCategory(idx, category) {
+    setTxnCategories((prev) => ({ ...prev, [idx]: category }));
+  }
+
   function importSelected() {
     if (!parsedTxns) return;
     const toImport = parsedTxns.filter((_, i) => selectedTxns[i]);
     if (toImport.length === 0) { toast("No transactions selected"); return; }
 
-    const newExpenses = toImport.filter((tx) => tx.type === "expense").map((tx) => ({
-      id: uid(), name: tx.name, amount: tx.amount, category: tx.category,
-      dateISO: tx.dateISO, paymentMethod: "Credit", notes: "Imported from statement",
-    }));
-    const newIncomes = toImport.filter((tx) => tx.type === "income").map((tx) => ({
-      id: uid(), name: tx.name, amount: tx.amount, category: tx.category,
-      dateISO: tx.dateISO, notes: "Imported from statement",
-    }));
+    const newMappings = { ...(data.categoryMappings || {}) };
+    parsedTxns.forEach((txn, i) => {
+      if (!selectedTxns[i]) return;
+      const cat = txnCategories[i] || txn.category;
+      const key = txn.name.toLowerCase().replace(/\s+/g, " ").trim();
+      newMappings[key] = cat;
+    });
+
+    const newExpenses = toImport.filter((tx) => tx.type === "expense").map((tx) => {
+      const realIdx = parsedTxns.indexOf(tx);
+      return {
+        id: uid(), name: tx.name, amount: tx.amount, category: txnCategories[realIdx] || tx.category,
+        dateISO: tx.dateISO, paymentMethod: "Credit", notes: "Imported from statement",
+      };
+    });
+    const newIncomes = toImport.filter((tx) => tx.type === "income").map((tx) => {
+      const realIdx = parsedTxns.indexOf(tx);
+      return {
+        id: uid(), name: tx.name, amount: tx.amount, category: txnCategories[realIdx] || tx.category,
+        dateISO: tx.dateISO, notes: "Imported from statement",
+      };
+    });
+
+    // Detect recurring transactions (same merchant 2+ times)
+    const merchantCounts = {};
+    toImport.forEach((tx) => {
+      if (tx.type !== "expense") return;
+      const key = tx.name.toLowerCase().replace(/\s+/g, " ").trim();
+      if (!merchantCounts[key]) merchantCounts[key] = { name: tx.name, amounts: [], category: txnCategories[parsedTxns.indexOf(tx)] || tx.category };
+      merchantCounts[key].amounts.push(tx.amount);
+    });
+    const recurring = Object.values(merchantCounts)
+      .filter((m) => m.amounts.length >= 2)
+      .map((m) => ({
+        name: m.name,
+        category: m.category,
+        count: m.amounts.length,
+        avgAmount: m.amounts.reduce((s, a) => s + a, 0) / m.amounts.length,
+      }));
 
     update({
       variableExpenses: [...data.variableExpenses, ...newExpenses],
       incomes: [...data.incomes, ...newIncomes],
+      categoryMappings: newMappings,
     });
 
     setImportStats({ expenses: newExpenses.length, income: newIncomes.length, total: fmt(toImport.reduce((s, tx) => s + tx.amount, 0)) });
     toast(`Imported ${toImport.length} transactions`);
+
+    if (recurring.length > 0) {
+      setRecurringCandidates(recurring);
+      const sel = {};
+      recurring.forEach((_, i) => { sel[i] = false; });
+      setSelectedRecurring(sel);
+    }
+
     setParsedTxns(null);
     setSelectedTxns({});
+    setShowCategorize(false);
+  }
+
+  function addRecurringBills() {
+    const toAdd = recurringCandidates.filter((_, i) => selectedRecurring[i]);
+    if (toAdd.length === 0) { toast("No bills selected"); return; }
+    const existingNames = data.fixedExpenses.map((e) => e.name.toLowerCase());
+    const newBills = toAdd
+      .filter((r) => !existingNames.includes(r.name.toLowerCase()))
+      .map((r) => ({
+        id: uid(),
+        name: r.name,
+        amount: Math.round(r.avgAmount * 100) / 100,
+        dayOfMonth: 1,
+        category: r.category,
+        notes: `Auto-detected (${r.count}x in statement)`,
+        lastPaidISO: null,
+      }));
+    if (newBills.length === 0) { toast("These bills already exist"); return; }
+    update({ fixedExpenses: [...data.fixedExpenses, ...newBills] });
+    toast(`Added ${newBills.length} recurring bill${newBills.length !== 1 ? "s" : ""}`);
+    setRecurringCandidates([]);
+    setSelectedRecurring({});
   }
 
   const sorted = data.statements.slice().sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
   const selectedCount = parsedTxns ? Object.values(selectedTxns).filter(Boolean).length : 0;
   const dupCount = parsedTxns ? parsedTxns.filter((tx) => tx.isDuplicate).length : 0;
+
+  const catOptions = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES.filter((c) => !EXPENSE_CATEGORIES.includes(c))];
 
   return (
     <div>
@@ -165,6 +270,7 @@ export function Documentos({ t, data, update }) {
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             <button onClick={selectAllNew} style={btnSmall(t, t.blue)}>Select new</button>
             <button onClick={selectNone} style={btnSmall(t, t.textDim)}>Select none</button>
+            <button onClick={() => setShowCategorize(true)} style={btnSmall(t, t.gold)}>Edit categories</button>
           </div>
 
           <div style={{ maxHeight: 320, overflowY: "auto", marginBottom: 10 }}>
@@ -189,7 +295,7 @@ export function Documentos({ t, data, update }) {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{txn.name}</div>
                     <div style={{ fontSize: 10, color: t.textDim }}>
-                      {txn.dateISO} · {txn.category}
+                      {txn.dateISO} · {txnCategories[i] || txn.category}
                       {txn.isDuplicate && <span style={{ color: t.gold, fontWeight: 600 }}> · DUPLICATE</span>}
                     </div>
                   </div>
@@ -207,6 +313,35 @@ export function Documentos({ t, data, update }) {
         </Card>
       )}
 
+      {/* Categorization sheet */}
+      <FormSheet t={t} open={showCategorize} onClose={() => setShowCategorize(false)} title="Edit Categories">
+        <div style={{ fontSize: 12, color: t.textDim, marginBottom: 12, lineHeight: 1.5 }}>
+          Assign a category to each transaction. Your choices are saved — future imports will auto-categorize matching merchants.
+        </div>
+        <div style={{ maxHeight: "55vh", overflowY: "auto" }}>
+          {parsedTxns && parsedTxns.map((txn, i) => (
+            selectedTxns[i] && (
+              <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{txn.name}</div>
+                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, fontWeight: 600, flexShrink: 0, marginLeft: 8 }}>
+                    ${txn.amount.toFixed(2)}
+                  </span>
+                </div>
+                <select
+                  value={txnCategories[i] || txn.category}
+                  onChange={(e) => { e.stopPropagation(); updateTxnCategory(i, e.target.value); }}
+                  style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: `1px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 12 }}
+                >
+                  {catOptions.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )
+          ))}
+        </div>
+        <button onClick={() => setShowCategorize(false)} style={{ ...btnPrimary(t), width: "100%", marginTop: 12 }}>Done</button>
+      </FormSheet>
+
       {importStats && (
         <Card t={t} style={{ borderColor: t.green }}>
           <SectionTitle t={t}>Import Complete</SectionTitle>
@@ -217,12 +352,50 @@ export function Documentos({ t, data, update }) {
         </Card>
       )}
 
+      {/* Recurring bills detection */}
+      {recurringCandidates.length > 0 && (
+        <Card t={t} style={{ borderColor: t.blue }}>
+          <SectionTitle t={t}>Recurring Bills Detected</SectionTitle>
+          <div style={{ fontSize: 11.5, color: t.textDim, lineHeight: 1.5, marginBottom: 10 }}>
+            These merchants appeared multiple times. Add them as recurring bills?
+          </div>
+          {recurringCandidates.map((r, i) => (
+            <div key={i}
+              onClick={() => setSelectedRecurring((prev) => ({ ...prev, [i]: !prev[i] }))}
+              style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "8px 6px", borderBottom: `1px solid ${t.border}`, cursor: "pointer",
+                background: selectedRecurring[i] ? `${t.blue}11` : "transparent",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                  border: `2px solid ${selectedRecurring[i] ? t.blue : t.border}`,
+                  background: selectedRecurring[i] ? t.blue : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, color: "#fff", fontWeight: 700,
+                }}>{selectedRecurring[i] ? "✓" : ""}</div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{r.name}</div>
+                  <div style={{ fontSize: 10, color: t.textDim }}>{r.category} · {r.count}x this statement · avg {fmt(r.avgAmount)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button onClick={addRecurringBills} style={{ ...btnPrimary(t), flex: 1 }}>Add selected as bills</button>
+            <button onClick={() => { setRecurringCandidates([]); setSelectedRecurring({}); }} style={{ ...btnGhost(t), flex: 1 }}>Skip</button>
+          </div>
+        </Card>
+      )}
+
       {tips.length > 0 && (
         <Card t={t}>
           <SectionTitle t={t}>Spending Insights</SectionTitle>
           {tips.map((tip, i) => (
             <div key={i} style={{ fontSize: 12, color: t.text, lineHeight: 1.5, padding: "6px 0", borderBottom: i < tips.length - 1 ? `1px solid ${t.border}` : "none" }}>
-              💡 {tip}
+              {tip}
             </div>
           ))}
         </Card>
@@ -230,7 +403,7 @@ export function Documentos({ t, data, update }) {
 
       <Card t={t}>
         <CollapsibleSection t={t} title="Statement History" count={sorted.length}>
-          {sorted.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>No statements recorded. Tap + to add one manually.</div>}
+          {sorted.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>No statements recorded. Upload a PDF or tap + to add one manually.</div>}
           {sorted.map((s) => (
             <div key={s.id} style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -240,7 +413,7 @@ export function Documentos({ t, data, update }) {
                   <button onClick={() => remove(s.id)} style={iconBtn(t)}>🗑️</button>
                 </div>
               </div>
-              <div style={{ fontSize: 11, color: t.textDim }}>{s.category} · {s.dateISO}{s.fileName ? ` · 📎 ${s.fileName}` : ""}</div>
+              <div style={{ fontSize: 11, color: t.textDim }}>{s.category} · {s.dateISO}{s.fileName ? ` · ${s.fileName}` : ""}</div>
               {s.notes && <div style={{ fontSize: 12, color: t.text, marginTop: 4 }}>{s.notes}</div>}
             </div>
           ))}

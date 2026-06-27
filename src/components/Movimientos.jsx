@@ -26,14 +26,14 @@ export function Movimientos({ t, data, update }) {
   const now = new Date();
   const weekStart = startOfWeek(now);
   const monthStart = startOfMonth(now);
-  const rangeStart = view === "week" ? weekStart : monthStart;
+  const rangeStart = view === "week" ? weekStart : view === "month" ? monthStart : null;
 
-  const filteredExpenses = data.variableExpenses.filter((e) => new Date(e.dateISO) >= rangeStart).sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
-  const filteredIncomes = data.incomes.filter((e) => new Date(e.dateISO) >= rangeStart).sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
+  const filteredExpenses = data.variableExpenses.filter((e) => !rangeStart || new Date(e.dateISO) >= rangeStart).sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
+  const filteredIncomes = data.incomes.filter((e) => !rangeStart || new Date(e.dateISO) >= rangeStart).sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
 
   const totalExp = filteredExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
   const totalInc = filteredIncomes.reduce((s, e) => s + Number(e.amount || 0), 0);
-  const days = view === "week" ? 7 : now.getDate();
+  const days = view === "week" ? 7 : view === "month" ? now.getDate() : Math.max(1, Math.ceil((now - new Date(Math.min(...data.variableExpenses.map((e) => new Date(e.dateISO).getTime()).concat(now.getTime())))) / 86400000));
   const avgDaily = totalExp / days;
 
   const byCategory = EXPENSE_CATEGORIES.map((c) => ({ name: c, value: filteredExpenses.filter((e) => e.category === c).reduce((s, e) => s + Number(e.amount || 0), 0) })).filter((c) => c.value > 0);
@@ -83,13 +83,14 @@ export function Movimientos({ t, data, update }) {
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setView("week")} style={pillBtn(t, view === "week")}>Week</button>
           <button onClick={() => setView("month")} style={pillBtn(t, view === "month")}>Month</button>
+          <button onClick={() => setView("all")} style={pillBtn(t, view === "all")}>All</button>
         </div>
       </Card>
 
       {kind === "expense" ? (
         <>
           <Card t={t}>
-            <SectionTitle t={t}>Expense Summary ({view === "week" ? "this week" : "this month"})</SectionTitle>
+            <SectionTitle t={t}>Expense Summary ({view === "week" ? "this week" : view === "month" ? "this month" : "all time"})</SectionTitle>
             <AnimatedMonoAmount t={t} value={totalExp} size={24} color={t.red} />
             <Row t={t} label="Daily average" value={-avgDaily} />
           </Card>
@@ -130,7 +131,7 @@ export function Movimientos({ t, data, update }) {
       ) : (
         <>
           <Card t={t}>
-            <SectionTitle t={t}>Income Summary ({view === "week" ? "this week" : "this month"})</SectionTitle>
+            <SectionTitle t={t}>Income Summary ({view === "week" ? "this week" : view === "month" ? "this month" : "all time"})</SectionTitle>
             <AnimatedMonoAmount t={t} value={totalInc} size={24} color={t.green} />
           </Card>
 

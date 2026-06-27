@@ -15,6 +15,7 @@ export const DEFAULT_DATA = {
   insuranceHealth: [],
   pension: { provider: "", currentBalance: 0, monthlyContribution: 0, historicalReturnPct: 8, currentAge: "", retirementAge: 65, contributions: [] },
   statements: [],
+  categoryMappings: {},
   apiKeys: { alphaVantage: "" },
 };
 
