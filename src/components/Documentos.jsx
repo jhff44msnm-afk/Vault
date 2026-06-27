@@ -4,7 +4,6 @@ import { STATEMENT_CATEGORIES, EXPENSE_CATEGORIES, INCOME_CATEGORIES, CAT_COLORS
 import { uid, fmt } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
 import { useConfirm } from "./ConfirmDialog.jsx";
-import * as pdfjsLib from "pdfjs-dist";
 import { extractTextFromPDF, parseTransactions, findDuplicates, analyzeSpending } from "../utils/pdfParser.js";
 
 export function Documentos({ t, data, update }) {
@@ -79,24 +78,7 @@ export function Documentos({ t, data, update }) {
     setRecurringCandidates([]);
     setSelectedRecurring({});
     try {
-      let rows;
-      try {
-        rows = await extractTextFromPDF(file);
-      } catch (workerErr) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false, disableAutoFetch: true }).promise;
-        rows = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const items = content.items.filter((it) => it.str && it.str.trim()).map((it) => ({ text: it.str.trim(), x: Math.round(it.transform[4]), y: Math.round(it.transform[5]) }));
-          const rowMap = {};
-          for (const item of items) { const yKey = Math.round(item.y / 4) * 4; if (!rowMap[yKey]) rowMap[yKey] = []; rowMap[yKey].push(item); }
-          const sortedYs = Object.keys(rowMap).map(Number).sort((a, b) => b - a);
-          for (const y of sortedYs) rows.push(rowMap[y].sort((a, b) => a.x - b.x));
-        }
-      }
+      const rows = await extractTextFromPDF(file);
       const raw = parseTransactions(rows);
       const withMappings = applySavedMappings(raw);
       const withDups = findDuplicates(withMappings, data.variableExpenses, data.incomes);
