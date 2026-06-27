@@ -9,12 +9,12 @@ import { useConfirm } from "./ConfirmDialog.jsx";
 export function Movimientos({ t, data, update }) {
   const toast = useToast();
   const confirm = useConfirm();
-  const [kind, setKind] = useState("gasto");
-  const [view, setView] = useState("semana");
+  const [kind, setKind] = useState("expense");
+  const [view, setView] = useState("week");
   const [showForm, setShowForm] = useState(false);
-  const [formKind, setFormKind] = useState("gasto");
-  const [expForm, setExpForm] = useState({ name: "", amount: "", category: "Comida", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Efectivo", notes: "" });
-  const [incForm, setIncForm] = useState({ name: "", amount: "", category: "Salario", dateISO: new Date().toISOString().slice(0, 10), notes: "" });
+  const [formKind, setFormKind] = useState("expense");
+  const [expForm, setExpForm] = useState({ name: "", amount: "", category: "Food", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Cash", notes: "" });
+  const [incForm, setIncForm] = useState({ name: "", amount: "", category: "Salary", dateISO: new Date().toISOString().slice(0, 10), notes: "" });
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
@@ -26,20 +26,20 @@ export function Movimientos({ t, data, update }) {
   const now = new Date();
   const weekStart = startOfWeek(now);
   const monthStart = startOfMonth(now);
-  const rangeStart = view === "semana" ? weekStart : monthStart;
+  const rangeStart = view === "week" ? weekStart : monthStart;
 
   const filteredExpenses = data.variableExpenses.filter((e) => new Date(e.dateISO) >= rangeStart).sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
   const filteredIncomes = data.incomes.filter((e) => new Date(e.dateISO) >= rangeStart).sort((a, b) => new Date(b.dateISO) - new Date(a.dateISO));
 
   const totalExp = filteredExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
   const totalInc = filteredIncomes.reduce((s, e) => s + Number(e.amount || 0), 0);
-  const days = view === "semana" ? 7 : now.getDate();
+  const days = view === "week" ? 7 : now.getDate();
   const avgDaily = totalExp / days;
 
   const byCategory = EXPENSE_CATEGORIES.map((c) => ({ name: c, value: filteredExpenses.filter((e) => e.category === c).reduce((s, e) => s + Number(e.amount || 0), 0) })).filter((c) => c.value > 0);
 
-  function resetExpForm() { setExpForm({ name: "", amount: "", category: "Comida", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Efectivo", notes: "" }); setEditingId(null); }
-  function resetIncForm() { setIncForm({ name: "", amount: "", category: "Salario", dateISO: new Date().toISOString().slice(0, 10), notes: "" }); setEditingId(null); }
+  function resetExpForm() { setExpForm({ name: "", amount: "", category: "Food", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Cash", notes: "" }); setEditingId(null); }
+  function resetIncForm() { setIncForm({ name: "", amount: "", category: "Salary", dateISO: new Date().toISOString().slice(0, 10), notes: "" }); setEditingId(null); }
   function closeForm() { resetExpForm(); resetIncForm(); setShowForm(false); }
 
   function submitExpense() {
@@ -47,7 +47,7 @@ export function Movimientos({ t, data, update }) {
     const payload = { ...expForm, amount: Number(expForm.amount) };
     const next = editingId ? data.variableExpenses.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.variableExpenses, { id: uid(), ...payload }];
     update({ variableExpenses: next });
-    toast(editingId ? "Gasto actualizado" : "Gasto registrado");
+    toast(editingId ? "Expense updated" : "Expense recorded");
     closeForm();
   }
   function submitIncome() {
@@ -55,48 +55,48 @@ export function Movimientos({ t, data, update }) {
     const payload = { ...incForm, amount: Number(incForm.amount) };
     const next = editingId ? data.incomes.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.incomes, { id: uid(), ...payload }];
     update({ incomes: next });
-    toast(editingId ? "Ingreso actualizado" : "Ingreso registrado");
+    toast(editingId ? "Income updated" : "Income recorded");
     closeForm();
   }
-  function editExpense(e) { setExpForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, paymentMethod: e.paymentMethod || "Efectivo", notes: e.notes || "" }); setEditingId(e.id); setFormKind("gasto"); setShowForm(true); }
-  function editIncome(e) { setIncForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, notes: e.notes || "" }); setEditingId(e.id); setFormKind("ingreso"); setShowForm(true); }
+  function editExpense(e) { setExpForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, paymentMethod: e.paymentMethod || "Cash", notes: e.notes || "" }); setEditingId(e.id); setFormKind("expense"); setShowForm(true); }
+  function editIncome(e) { setIncForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, notes: e.notes || "" }); setEditingId(e.id); setFormKind("income"); setShowForm(true); }
   async function removeExpense(id) {
-    if (!await confirm("¿Eliminar este gasto?")) return;
+    if (!await confirm("Delete this expense?")) return;
     update({ variableExpenses: data.variableExpenses.filter((e) => e.id !== id) });
     if (editingId === id) resetExpForm();
-    toast("Gasto eliminado");
+    toast("Expense deleted");
   }
   async function removeIncome(id) {
-    if (!await confirm("¿Eliminar este ingreso?")) return;
+    if (!await confirm("Delete this income?")) return;
     update({ incomes: data.incomes.filter((e) => e.id !== id) });
     if (editingId === id) resetIncForm();
-    toast("Ingreso eliminado");
+    toast("Income deleted");
   }
 
   return (
     <div>
       <Card t={t}>
         <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-          <button onClick={() => { setKind("gasto"); setEditingId(null); }} style={pillBtn(t, kind === "gasto")}>🧾 Gastos</button>
-          <button onClick={() => { setKind("ingreso"); setEditingId(null); }} style={pillBtn(t, kind === "ingreso")}>💰 Ingresos</button>
+          <button onClick={() => { setKind("expense"); setEditingId(null); }} style={pillBtn(t, kind === "expense")}>🧾 Expenses</button>
+          <button onClick={() => { setKind("income"); setEditingId(null); }} style={pillBtn(t, kind === "income")}>💰 Income</button>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setView("semana")} style={pillBtn(t, view === "semana")}>Semana</button>
-          <button onClick={() => setView("mes")} style={pillBtn(t, view === "mes")}>Mes</button>
+          <button onClick={() => setView("week")} style={pillBtn(t, view === "week")}>Week</button>
+          <button onClick={() => setView("month")} style={pillBtn(t, view === "month")}>Month</button>
         </div>
       </Card>
 
-      {kind === "gasto" ? (
+      {kind === "expense" ? (
         <>
           <Card t={t}>
-            <SectionTitle t={t}>Resumen de gastos ({view === "semana" ? "esta semana" : "este mes"})</SectionTitle>
+            <SectionTitle t={t}>Expense Summary ({view === "week" ? "this week" : "this month"})</SectionTitle>
             <AnimatedMonoAmount t={t} value={totalExp} size={24} color={t.red} />
-            <Row t={t} label="Promedio diario" value={-avgDaily} />
+            <Row t={t} label="Daily average" value={-avgDaily} />
           </Card>
 
           {byCategory.length > 0 && (
             <Card t={t}>
-              <SectionTitle t={t}>Por categoría</SectionTitle>
+              <SectionTitle t={t}>By Category</SectionTitle>
               <ResponsiveContainer width="100%" height={170}>
                 <PieChart>
                   <Pie data={byCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} label={({ name }) => name}>
@@ -109,13 +109,13 @@ export function Movimientos({ t, data, update }) {
           )}
 
           <Card t={t}>
-            <CollapsibleSection t={t} title="Movimientos" count={filteredExpenses.length}>
-              {filteredExpenses.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin gastos registrados en este periodo.</div>}
+            <CollapsibleSection t={t} title="Transactions" count={filteredExpenses.length}>
+              {filteredExpenses.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>No expenses recorded in this period.</div>}
               {filteredExpenses.map((e) => (
                 <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
-                    <div style={{ fontSize: 11, color: t.textDim }}>{e.category} · {e.paymentMethod || "Otro"} · {e.dateISO}</div>
+                    <div style={{ fontSize: 11, color: t.textDim }}>{e.category} · {e.paymentMethod || "Other"} · {e.dateISO}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 14 }}>{fmt(e.amount)}</span>
@@ -130,13 +130,13 @@ export function Movimientos({ t, data, update }) {
       ) : (
         <>
           <Card t={t}>
-            <SectionTitle t={t}>Resumen de ingresos ({view === "semana" ? "esta semana" : "este mes"})</SectionTitle>
+            <SectionTitle t={t}>Income Summary ({view === "week" ? "this week" : "this month"})</SectionTitle>
             <AnimatedMonoAmount t={t} value={totalInc} size={24} color={t.green} />
           </Card>
 
           <Card t={t}>
-            <CollapsibleSection t={t} title="Movimientos" count={filteredIncomes.length}>
-              {filteredIncomes.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin ingresos registrados en este periodo.</div>}
+            <CollapsibleSection t={t} title="Transactions" count={filteredIncomes.length}>
+              {filteredIncomes.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>No income recorded in this period.</div>}
               {filteredIncomes.map((e) => (
                 <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
                   <div>
@@ -155,32 +155,32 @@ export function Movimientos({ t, data, update }) {
         </>
       )}
 
-      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar movimiento" : "Nuevo movimiento"}>
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Edit Transaction" : "New Transaction"}>
         <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <button onClick={() => setFormKind("gasto")} style={pillBtn(t, formKind === "gasto")}>🧾 Gasto</button>
-          <button onClick={() => setFormKind("ingreso")} style={pillBtn(t, formKind === "ingreso")}>💰 Ingreso</button>
+          <button onClick={() => setFormKind("expense")} style={pillBtn(t, formKind === "expense")}>🧾 Expense</button>
+          <button onClick={() => setFormKind("income")} style={pillBtn(t, formKind === "income")}>💰 Income</button>
         </div>
-        {formKind === "gasto" ? (
+        {formKind === "expense" ? (
           <>
-            <Input t={t} placeholder="Nombre (ej. Comida, Ropa nueva)" value={expForm.name} onChange={(v) => setExpForm({ ...expForm, name: v })} />
-            <Input t={t} placeholder="Monto (USD)" type="number" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} />
+            <Input t={t} placeholder="Name (e.g. Groceries, Gas)" value={expForm.name} onChange={(v) => setExpForm({ ...expForm, name: v })} />
+            <Input t={t} placeholder="Amount (USD)" type="number" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} />
             <Select t={t} value={expForm.category} onChange={(v) => setExpForm({ ...expForm, category: v })} options={EXPENSE_CATEGORIES} />
             <Select t={t} value={expForm.paymentMethod} onChange={(v) => setExpForm({ ...expForm, paymentMethod: v })} options={PAYMENT_METHODS} />
             <Input t={t} type="date" value={expForm.dateISO} onChange={(v) => setExpForm({ ...expForm, dateISO: v })} />
-            <Input t={t} placeholder="Nota (opcional)" value={expForm.notes} onChange={(v) => setExpForm({ ...expForm, notes: v })} />
+            <Input t={t} placeholder="Note (optional)" value={expForm.notes} onChange={(v) => setExpForm({ ...expForm, notes: v })} />
             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button onClick={submitExpense} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar gasto"}</button>
+              <button onClick={submitExpense} style={btnPrimary(t)}>{editingId ? "Save changes" : "Add expense"}</button>
             </div>
           </>
         ) : (
           <>
-            <Input t={t} placeholder="Nombre (ej. Quincena, Pago de cliente)" value={incForm.name} onChange={(v) => setIncForm({ ...incForm, name: v })} />
-            <Input t={t} placeholder="Monto (USD)" type="number" value={incForm.amount} onChange={(v) => setIncForm({ ...incForm, amount: v })} />
+            <Input t={t} placeholder="Name (e.g. Paycheck, Client payment)" value={incForm.name} onChange={(v) => setIncForm({ ...incForm, name: v })} />
+            <Input t={t} placeholder="Amount (USD)" type="number" value={incForm.amount} onChange={(v) => setIncForm({ ...incForm, amount: v })} />
             <Select t={t} value={incForm.category} onChange={(v) => setIncForm({ ...incForm, category: v })} options={INCOME_CATEGORIES} />
             <Input t={t} type="date" value={incForm.dateISO} onChange={(v) => setIncForm({ ...incForm, dateISO: v })} />
-            <Input t={t} placeholder="Nota (opcional)" value={incForm.notes} onChange={(v) => setIncForm({ ...incForm, notes: v })} />
+            <Input t={t} placeholder="Note (optional)" value={incForm.notes} onChange={(v) => setIncForm({ ...incForm, notes: v })} />
             <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-              <button onClick={submitIncome} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar ingreso"}</button>
+              <button onClick={submitIncome} style={btnPrimary(t)}>{editingId ? "Save changes" : "Add income"}</button>
             </div>
           </>
         )}

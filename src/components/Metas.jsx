@@ -24,19 +24,19 @@ export function Metas({ t, data, update }) {
     const payload = { name: form.name, targetAmount: Number(form.targetAmount), savedAmount: Number(form.savedAmount || 0), deadlineISO: form.deadlineISO };
     const next = editingId ? data.goals.map((g) => (g.id === editingId ? { ...g, ...payload } : g)) : [...data.goals, { id: uid(), ...payload }];
     update({ goals: next });
-    toast(editingId ? "Meta actualizada" : "Meta creada");
+    toast(editingId ? "Goal updated" : "Goal created");
     closeForm();
   }
   function edit(g) { setForm({ name: g.name, targetAmount: String(g.targetAmount), savedAmount: String(g.savedAmount), deadlineISO: g.deadlineISO || "" }); setEditingId(g.id); setShowForm(true); }
   async function remove(id) {
-    if (!await confirm("¿Eliminar esta meta?")) return;
+    if (!await confirm("Delete this goal?")) return;
     update({ goals: data.goals.filter((g) => g.id !== id) });
     if (editingId === id) resetForm();
-    toast("Meta eliminada");
+    toast("Goal deleted");
   }
   function addToGoal(id, amount) {
     update({ goals: data.goals.map((g) => (g.id === id ? { ...g, savedAmount: g.savedAmount + amount } : g)) });
-    toast(`+$${amount} abonado`);
+    toast(`+$${amount} added`);
   }
 
   return (
@@ -57,13 +57,13 @@ export function Metas({ t, data, update }) {
                 <button onClick={() => remove(g.id)} style={iconBtn(t)}>🗑️</button>
               </div>
             </div>
-            <div style={{ fontSize: 12, color: t.textDim, margin: "4px 0" }}>{g.deadlineISO ? `Fecha objetivo: ${g.deadlineISO}` : "Sin fecha objetivo"}</div>
+            <div style={{ fontSize: 12, color: t.textDim, margin: "4px 0" }}>{g.deadlineISO ? `Target date: ${g.deadlineISO}` : "No target date"}</div>
             <div style={{ margin: "8px 0" }}><ProgressBar t={t} pctValue={p} color={p >= 100 ? t.green : t.gold} /></div>
-            <Row t={t} label="Ahorrado" value={g.savedAmount} />
-            <Row t={t} label="Meta" value={g.targetAmount} />
-            <Row t={t} label="Completado" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{pctStr(p)}</span>} />
+            <Row t={t} label="Saved" value={g.savedAmount} />
+            <Row t={t} label="Goal" value={g.targetAmount} />
+            <Row t={t} label="Completed" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{pctStr(p)}</span>} />
             {monthlyRequired !== null && monthlyRequired > 0 && (
-              <div style={{ fontSize: 12, color: t.blue, marginTop: 4 }}>Ahorro requerido: {fmt(monthlyRequired)}/mes para llegar a tiempo ({monthsLeft} {monthsLeft === 1 ? "mes" : "meses"} restantes).</div>
+              <div style={{ fontSize: 12, color: t.blue, marginTop: 4 }}>Required savings: {fmt(monthlyRequired)}/mo to meet deadline ({monthsLeft} {monthsLeft === 1 ? "month" : "months"} remaining).</div>
             )}
             <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
               <button onClick={() => addToGoal(g.id, 20)} style={btnSmall(t, t.gold)}>+ $20</button>
@@ -76,17 +76,17 @@ export function Metas({ t, data, update }) {
 
       {data.goals.length === 0 && (
         <Card t={t}>
-          <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>Sin metas registradas. Toca + para crear una.</div>
+          <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>No goals registered. Tap + to create one.</div>
         </Card>
       )}
 
-      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar meta" : "Nueva meta"}>
-        <Input t={t} placeholder="Nombre (ej. Fondo de emergencia)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-        <Input t={t} placeholder="Monto objetivo (USD)" type="number" value={form.targetAmount} onChange={(v) => setForm({ ...form, targetAmount: v })} />
-        <Input t={t} placeholder="Ya ahorrado (USD)" type="number" value={form.savedAmount} onChange={(v) => setForm({ ...form, savedAmount: v })} />
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Edit Goal" : "New Goal"}>
+        <Input t={t} placeholder="Name (e.g. Emergency fund)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+        <Input t={t} placeholder="Target amount (USD)" type="number" value={form.targetAmount} onChange={(v) => setForm({ ...form, targetAmount: v })} />
+        <Input t={t} placeholder="Already saved (USD)" type="number" value={form.savedAmount} onChange={(v) => setForm({ ...form, savedAmount: v })} />
         <Input t={t} type="date" value={form.deadlineISO} onChange={(v) => setForm({ ...form, deadlineISO: v })} />
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Crear meta"}</button>
+          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Save changes" : "Create goal"}</button>
         </div>
       </FormSheet>
     </div>

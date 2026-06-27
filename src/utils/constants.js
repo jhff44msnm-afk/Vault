@@ -1,4 +1,3 @@
-/* Tokens y listas compartidas por toda la app */
 export const THEME = {
   dark: {
     bg: "#0F1B2D", bgElev: "#152436", card: "#1B2C42", border: "#2A3D54",
@@ -12,16 +11,15 @@ export const THEME = {
   },
 };
 
-export const EXPENSE_CATEGORIES = ["Comida", "Transporte", "Vivienda/Bills", "Suscripciones", "Salud", "Familia", "Ropa", "Personal", "Otros"];
-export const CAT_COLORS = { "Comida": "#C9A227", "Transporte": "#5B8DBF", "Vivienda/Bills": "#C1573B", "Suscripciones": "#8D7AC9", "Salud": "#3E9C6F", "Familia": "#D98E3F", "Ropa": "#B568A8", "Personal": "#6B9FB0", "Otros": "#7A8699" };
-export const INCOME_CATEGORIES = ["Salario", "Freelance", "Reembolso", "Regalo", "Inversión", "Otro"];
-export const PAYMENT_METHODS = ["Efectivo", "Débito", "Crédito", "Transferencia", "Otro"];
-export const INVESTMENT_TYPES = ["Acciones", "ETFs", "Fondos", "CETES", "AFORE", "Criptomonedas", "Bienes raíces"];
-export const STATEMENT_CATEGORIES = ["Tarjeta de crédito", "Cuenta bancaria", "Inversión", "Servicio", "Otro"];
+export const EXPENSE_CATEGORIES = ["Food", "Transport", "Housing/Bills", "Subscriptions", "Health", "Family", "Clothing", "Personal", "Other"];
+export const CAT_COLORS = { "Food": "#C9A227", "Transport": "#5B8DBF", "Housing/Bills": "#C1573B", "Subscriptions": "#8D7AC9", "Health": "#3E9C6F", "Family": "#D98E3F", "Clothing": "#B568A8", "Personal": "#6B9FB0", "Other": "#7A8699" };
+export const INCOME_CATEGORIES = ["Salary", "Freelance", "Refund", "Gift", "Investment", "Other"];
+export const PAYMENT_METHODS = ["Cash", "Debit", "Credit", "Transfer", "Other"];
+export const INVESTMENT_TYPES = ["Stocks", "ETFs", "Mutual Funds", "Treasury Bonds", "401(k)/IRA", "Crypto", "Real Estate"];
+export const STATEMENT_CATEGORIES = ["Credit Card", "Bank Account", "Investment", "Service", "Other"];
 
 export const RISK_RANGES = {
-  Conservador: { min: 3, max: 5, desc: "CETES, pagarés, fondos de deuda de corto plazo." },
-  Moderado: { min: 6, max: 8, desc: "Mezcla de renta fija y ETFs amplios (ej. VT, bonos)." },
-  Agresivo: { min: 9, max: 12, desc: "ETFs de renta variable, acciones individuales — mayor volatilidad." },
+  Conservative: { min: 3, max: 5, desc: "T-Bills, CDs, money market funds, short-term bond funds." },
+  Moderate: { min: 6, max: 8, desc: "Mix of bonds, broad ETFs (e.g. VTI, BND), balanced funds." },
+  Aggressive: { min: 9, max: 12, desc: "Equity ETFs, individual stocks — higher volatility." },
 };
-
