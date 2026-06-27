@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { Card, SectionTitle, MonoAmount, Row, Input, Select, btnPrimary, btnGhost, iconBtn, pillBtn } from "./ui.jsx";
+import { Card, SectionTitle, AnimatedMonoAmount, Row, Input, Select, CollapsibleSection, btnPrimary, btnGhost, iconBtn, pillBtn } from "./ui.jsx";
 import { EXPENSE_CATEGORIES, CAT_COLORS, INCOME_CATEGORIES, PAYMENT_METHODS } from "../utils/constants.js";
 import { fmt, uid, startOfWeek, startOfMonth } from "../utils/calculations.js";
+import { useToast } from "./Toast.jsx";
+import { useConfirm } from "./ConfirmDialog.jsx";
 
 export function Movimientos({ t, data, update }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [kind, setKind] = useState("gasto");
   const [view, setView] = useState("semana");
   const [expForm, setExpForm] = useState({ name: "", amount: "", category: "Comida", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Efectivo", notes: "" });
@@ -34,6 +38,7 @@ export function Movimientos({ t, data, update }) {
     const payload = { ...expForm, amount: Number(expForm.amount) };
     const next = editingId ? data.variableExpenses.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.variableExpenses, { id: uid(), ...payload }];
     update({ variableExpenses: next });
+    toast(editingId ? "Gasto actualizado" : "Gasto registrado");
     resetExpForm();
   }
   function submitIncome() {
@@ -41,12 +46,23 @@ export function Movimientos({ t, data, update }) {
     const payload = { ...incForm, amount: Number(incForm.amount) };
     const next = editingId ? data.incomes.map((e) => (e.id === editingId ? { ...e, ...payload } : e)) : [...data.incomes, { id: uid(), ...payload }];
     update({ incomes: next });
+    toast(editingId ? "Ingreso actualizado" : "Ingreso registrado");
     resetIncForm();
   }
   function editExpense(e) { setExpForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, paymentMethod: e.paymentMethod || "Efectivo", notes: e.notes || "" }); setEditingId(e.id); }
   function editIncome(e) { setIncForm({ name: e.name, amount: String(e.amount), category: e.category, dateISO: e.dateISO, notes: e.notes || "" }); setEditingId(e.id); }
-  function removeExpense(id) { update({ variableExpenses: data.variableExpenses.filter((e) => e.id !== id) }); if (editingId === id) resetExpForm(); }
-  function removeIncome(id) { update({ incomes: data.incomes.filter((e) => e.id !== id) }); if (editingId === id) resetIncForm(); }
+  async function removeExpense(id) {
+    if (!await confirm("¿Eliminar este gasto?")) return;
+    update({ variableExpenses: data.variableExpenses.filter((e) => e.id !== id) });
+    if (editingId === id) resetExpForm();
+    toast("Gasto eliminado");
+  }
+  async function removeIncome(id) {
+    if (!await confirm("¿Eliminar este ingreso?")) return;
+    update({ incomes: data.incomes.filter((e) => e.id !== id) });
+    if (editingId === id) resetIncForm();
+    toast("Ingreso eliminado");
+  }
 
   return (
     <div>
@@ -65,7 +81,7 @@ export function Movimientos({ t, data, update }) {
         <>
           <Card t={t}>
             <SectionTitle t={t}>Resumen de gastos ({view === "semana" ? "esta semana" : "este mes"})</SectionTitle>
-            <MonoAmount t={t} value={totalExp} size={24} color={t.red} />
+            <AnimatedMonoAmount t={t} value={totalExp} size={24} color={t.red} />
             <Row t={t} label="Promedio diario" value={-avgDaily} />
           </Card>
 
@@ -83,7 +99,7 @@ export function Movimientos({ t, data, update }) {
             </Card>
           )}
 
-          <Card t={t}>
+          <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
             <SectionTitle t={t}>{editingId ? "Editar gasto" : "Registrar gasto"}</SectionTitle>
             <Input t={t} placeholder="Nombre (ej. Comida, Ropa nueva)" value={expForm.name} onChange={(v) => setExpForm({ ...expForm, name: v })} />
             <Input t={t} placeholder="Monto (USD)" type="number" value={expForm.amount} onChange={(v) => setExpForm({ ...expForm, amount: v })} />
@@ -98,31 +114,32 @@ export function Movimientos({ t, data, update }) {
           </Card>
 
           <Card t={t}>
-            <SectionTitle t={t}>Movimientos</SectionTitle>
-            {filteredExpenses.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin gastos registrados en este periodo.</div>}
-            {filteredExpenses.map((e) => (
-              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
-                  <div style={{ fontSize: 11, color: t.textDim }}>{e.category} · {e.paymentMethod || "Otro"} · {e.dateISO}</div>
+            <CollapsibleSection t={t} title="Movimientos" count={filteredExpenses.length}>
+              {filteredExpenses.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin gastos registrados en este periodo.</div>}
+              {filteredExpenses.map((e) => (
+                <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
+                    <div style={{ fontSize: 11, color: t.textDim }}>{e.category} · {e.paymentMethod || "Otro"} · {e.dateISO}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 14 }}>{fmt(e.amount)}</span>
+                    <button onClick={() => editExpense(e)} style={iconBtn(t)}>✏️</button>
+                    <button onClick={() => removeExpense(e.id)} style={iconBtn(t)}>🗑️</button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 14 }}>{fmt(e.amount)}</span>
-                  <button onClick={() => editExpense(e)} style={iconBtn(t)}>✏️</button>
-                  <button onClick={() => removeExpense(e.id)} style={iconBtn(t)}>🗑️</button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </CollapsibleSection>
           </Card>
         </>
       ) : (
         <>
           <Card t={t}>
             <SectionTitle t={t}>Resumen de ingresos ({view === "semana" ? "esta semana" : "este mes"})</SectionTitle>
-            <MonoAmount t={t} value={totalInc} size={24} color={t.green} />
+            <AnimatedMonoAmount t={t} value={totalInc} size={24} color={t.green} />
           </Card>
 
-          <Card t={t}>
+          <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
             <SectionTitle t={t}>{editingId ? "Editar ingreso" : "Registrar ingreso"}</SectionTitle>
             <Input t={t} placeholder="Nombre (ej. Quincena, Pago de cliente)" value={incForm.name} onChange={(v) => setIncForm({ ...incForm, name: v })} />
             <Input t={t} placeholder="Monto (USD)" type="number" value={incForm.amount} onChange={(v) => setIncForm({ ...incForm, amount: v })} />
@@ -136,25 +153,25 @@ export function Movimientos({ t, data, update }) {
           </Card>
 
           <Card t={t}>
-            <SectionTitle t={t}>Movimientos</SectionTitle>
-            {filteredIncomes.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin ingresos registrados en este periodo.</div>}
-            {filteredIncomes.map((e) => (
-              <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
-                  <div style={{ fontSize: 11, color: t.textDim }}>{e.category} · {e.dateISO}</div>
+            <CollapsibleSection t={t} title="Movimientos" count={filteredIncomes.length}>
+              {filteredIncomes.length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin ingresos registrados en este periodo.</div>}
+              {filteredIncomes.map((e) => (
+                <div key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
+                    <div style={{ fontSize: 11, color: t.textDim }}>{e.category} · {e.dateISO}</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 14, color: t.green }}>{fmt(e.amount)}</span>
+                    <button onClick={() => editIncome(e)} style={iconBtn(t)}>✏️</button>
+                    <button onClick={() => removeIncome(e.id)} style={iconBtn(t)}>🗑️</button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 14, color: t.green }}>{fmt(e.amount)}</span>
-                  <button onClick={() => editIncome(e)} style={iconBtn(t)}>✏️</button>
-                  <button onClick={() => removeIncome(e.id)} style={iconBtn(t)}>🗑️</button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </CollapsibleSection>
           </Card>
         </>
       )}
     </div>
   );
 }
-

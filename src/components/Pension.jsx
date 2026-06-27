@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, SectionTitle, Row, Field, Input, btnPrimary, btnGhost } from "./ui.jsx";
+import { Card, SectionTitle, Row, Field, Input, CollapsibleSection, btnPrimary, btnGhost } from "./ui.jsx";
 import { fmt, uid, DEFAULT_DATA } from "../utils/calculations.js";
+import { useToast } from "./Toast.jsx";
 
 export function Pension({ t, data, update }) {
+  const toast = useToast();
   const pension = data.pension || DEFAULT_DATA.pension;
   const [form, setForm] = useState({
     afore: pension.afore || "", currentBalance: String(pension.currentBalance || 0),
@@ -14,6 +16,7 @@ export function Pension({ t, data, update }) {
 
   function saveForm() {
     update({ pension: { ...pension, afore: form.afore, currentBalance: Number(form.currentBalance) || 0, monthlyContribution: Number(form.monthlyContribution) || 0, historicalReturnPct: Number(form.historicalReturnPct) || 0, currentAge: Number(form.currentAge) || "", retirementAge: Number(form.retirementAge) || 65 } });
+    toast("Datos de AFORE guardados");
   }
   function logContribution() {
     if (!contribAmount) return;
@@ -21,6 +24,7 @@ export function Pension({ t, data, update }) {
     const entry = { id: uid(), amount: Number(contribAmount), dateISO: todayISO };
     update({ pension: { ...pension, contributions: [...(pension.contributions || []), entry], currentBalance: Number(pension.currentBalance || 0) + Number(contribAmount) } });
     setContribAmount("");
+    toast("Aportación registrada");
   }
 
   const yearsToRetire = Math.max(0, (Number(form.retirementAge) || 65) - (Number(form.currentAge) || 0));
@@ -36,7 +40,7 @@ export function Pension({ t, data, update }) {
 
   return (
     <div>
-      <Card t={t}>
+      <Card t={t} id="vault-form">
         <SectionTitle t={t}>AFORE actual</SectionTitle>
         <Field t={t} label="Administradora (AFORE)"><Input t={t} value={form.afore} onChange={(v) => setForm({ ...form, afore: v })} placeholder="Ej. Profuturo, XXI-Banorte" /></Field>
         <Field t={t} label="Saldo actual (USD)"><Input t={t} type="number" value={form.currentBalance} onChange={(v) => setForm({ ...form, currentBalance: v })} /></Field>
@@ -72,11 +76,11 @@ export function Pension({ t, data, update }) {
       </Card>
 
       <Card t={t}>
-        <SectionTitle t={t}>Historial de aportaciones</SectionTitle>
-        {(pension.contributions || []).length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin aportaciones registradas.</div>}
-        {(pension.contributions || []).slice().reverse().map((c) => <Row key={c.id} t={t} label={c.dateISO} value={c.amount} />)}
+        <CollapsibleSection t={t} title="Historial de aportaciones" count={(pension.contributions || []).length}>
+          {(pension.contributions || []).length === 0 && <div style={{ fontSize: 13, color: t.textDim }}>Sin aportaciones registradas.</div>}
+          {(pension.contributions || []).slice().reverse().map((c) => <Row key={c.id} t={t} label={c.dateISO} value={c.amount} />)}
+        </CollapsibleSection>
       </Card>
     </div>
   );
 }
-

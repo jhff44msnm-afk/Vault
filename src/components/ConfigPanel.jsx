@@ -1,14 +1,19 @@
 import React, { useState, useRef } from "react";
 import { Card, SectionTitle, Field, Input, btnPrimary, btnGhost, iconBtn } from "./ui.jsx";
 import { DEFAULT_DATA } from "../utils/calculations.js";
+import { useToast } from "./Toast.jsx";
+import { useConfirm } from "./ConfirmDialog.jsx";
 
 export function ConfigPanel({ t, data, update, close }) {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [inflation, setInflation] = useState(String(data.inflationRate ?? 3));
   const [avKey, setAvKey] = useState(data.apiKeys?.alphaVantage || "");
   const fileRef = useRef(null);
 
   function saveConfig() {
     update({ inflationRate: Number(inflation) || 0, apiKeys: { ...data.apiKeys, alphaVantage: avKey.trim() } });
+    toast("Configuración guardada");
     close();
   }
 
@@ -22,21 +27,23 @@ export function ConfigPanel({ t, data, update, close }) {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    toast("Respaldo exportado", "info");
   }
 
-  function importBackup(e) {
+  async function importBackup(e) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        if (window.confirm("Esto reemplazará todos tus datos actuales con los del archivo. ¿Continuar?")) {
+        if (await confirm("Esto reemplazará todos tus datos actuales con los del archivo. ¿Continuar?", "Importar")) {
           update({ ...DEFAULT_DATA, ...parsed });
+          toast("Datos importados correctamente");
           close();
         }
       } catch {
-        window.alert("El archivo no es un respaldo válido de VAULT.");
+        toast("El archivo no es un respaldo válido de VAULT.", "error");
       }
     };
     reader.readAsText(file);
@@ -68,4 +75,3 @@ export function ConfigPanel({ t, data, update, close }) {
     </Card>
   );
 }
-

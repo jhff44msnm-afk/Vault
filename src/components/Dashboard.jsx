@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend
 } from "recharts";
-import { Card, SectionTitle, MonoAmount, Row, ProgressBar, Badge } from "./ui.jsx";
+import { Card, SectionTitle, MonoAmount, AnimatedMonoAmount, Row, ProgressBar, Badge } from "./ui.jsx";
 import { EXPENSE_CATEGORIES, CAT_COLORS } from "../utils/constants.js";
 import {
   fmt, startOfMonth, daysUntil, daysInMonth,
@@ -14,12 +14,10 @@ export function Dashboard({ t, data }) {
   const today = new Date();
   const allExpenses = useMemo(() => [...data.variableExpenses, ...data.paymentLog], [data.variableExpenses, data.paymentLog]);
 
-  // Saldo disponible global
   const totalIngresos = data.incomes.reduce((s, x) => s + Number(x.amount || 0), 0);
   const totalGastos = allExpenses.reduce((s, x) => s + Number(x.amount || 0), 0);
   const saldoDisponible = totalIngresos - totalGastos;
 
-  // Día
   const todayStr = today.toISOString().slice(0, 10);
   const gastoHoy = allExpenses.filter((x) => x.dateISO === todayStr).reduce((s, x) => s + Number(x.amount || 0), 0);
   const monthStart = startOfMonth(today);
@@ -31,7 +29,6 @@ export function Dashboard({ t, data }) {
   const diasRestantesMes = Math.max(1, daysInMonth(today) - diaDelMes + 1);
   const saldoRestanteDiario = saldoDisponibleMes / diasRestantesMes;
 
-  // Período de 6 meses
   const monthly = useMemo(() => buildMonthlySeries(data, 6), [data]);
   const periodoIngresos = monthly.reduce((s, m) => s + m.ingresos, 0);
   const periodoGastos = monthly.reduce((s, m) => s + m.gastos, 0);
@@ -53,7 +50,7 @@ export function Dashboard({ t, data }) {
     <div>
       <Card t={t} style={{ textAlign: "center" }}>
         <SectionTitle t={t}>Saldo disponible</SectionTitle>
-        <MonoAmount t={t} value={saldoDisponible} size={30} color={saldoDisponible >= 0 ? t.green : t.red} />
+        <AnimatedMonoAmount t={t} value={saldoDisponible} size={30} color={saldoDisponible >= 0 ? t.green : t.red} />
         <div style={{ fontSize: 11, color: t.textDim, marginTop: 6 }}>Ingresos totales − gastos totales (todo el historial registrado)</div>
       </Card>
 
@@ -70,14 +67,14 @@ export function Dashboard({ t, data }) {
         <Row t={t} label="Gastado del mes" value={-gastadoMes} />
         <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 8, paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 13, color: t.textDim }}>Saldo disponible del mes</span>
-          <MonoAmount t={t} value={saldoDisponibleMes} color={saldoDisponibleMes >= 0 ? t.green : t.red} />
+          <AnimatedMonoAmount t={t} value={saldoDisponibleMes} color={saldoDisponibleMes >= 0 ? t.green : t.red} />
         </div>
       </Card>
 
       <Card t={t}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <SectionTitle t={t}>Últimos 6 meses</SectionTitle>
-          <Badge t={t} color={tendenciaColor}>{tendencia}</Badge>
+          <Badge t={t} color={tendenciaColor} pulse>{tendencia}</Badge>
         </div>
         <Row t={t} label="Total ingresado" value={periodoIngresos} />
         <Row t={t} label="Total gastado" value={-periodoGastos} />
@@ -162,4 +159,3 @@ export function Dashboard({ t, data }) {
     </div>
   );
 }
-
