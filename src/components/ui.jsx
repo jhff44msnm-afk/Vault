@@ -154,6 +154,31 @@ export function LoadingSkeleton({ t, lines = 4 }) {
   );
 }
 
+export function FormSheet({ t, open, onClose, title, children }) {
+  if (!open) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9997 }}>
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", animation: "vault-overlayIn 0.2s ease" }} />
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        maxWidth: 480, margin: "0 auto",
+        background: t.card, borderRadius: "20px 20px 0 0",
+        padding: `20px 16px calc(20px + env(safe-area-inset-bottom, 0px))`,
+        maxHeight: "85vh", overflowY: "auto",
+        animation: "vault-sheetUp 0.3s ease",
+        boxShadow: "0 -4px 32px rgba(0,0,0,0.4)",
+      }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: t.border, margin: "0 auto 14px" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{title}</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 18, color: t.textDim, cursor: "pointer", padding: 4 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export const btnPrimary = (t) => ({ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", background: t.gold, color: "#1B2230", fontWeight: 700, fontSize: 13, cursor: "pointer" });
 export const btnGhost = (t) => ({ padding: "10px 14px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.text, fontWeight: 600, fontSize: 13, cursor: "pointer" });
 export const btnSmall = (t, color) => ({ padding: "5px 10px", borderRadius: 6, border: `1px solid ${color}`, background: "transparent", color, fontSize: 11, fontWeight: 600, cursor: "pointer" });

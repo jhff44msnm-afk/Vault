@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Card, SectionTitle, Row, ProgressBar, Input, btnPrimary, btnGhost, btnSmall, iconBtn } from "./ui.jsx";
+import React, { useState, useEffect } from "react";
+import { Card, SectionTitle, Row, ProgressBar, Input, FormSheet, btnPrimary, btnGhost, btnSmall, iconBtn } from "./ui.jsx";
 import { fmt, pctStr, uid } from "../utils/calculations.js";
 import { useToast } from "./Toast.jsx";
 import { useConfirm } from "./ConfirmDialog.jsx";
@@ -9,17 +9,25 @@ export function Metas({ t, data, update }) {
   const confirm = useConfirm();
   const [form, setForm] = useState({ name: "", targetAmount: "", savedAmount: "0", deadlineISO: "" });
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    const handler = () => { resetForm(); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, []);
 
   function resetForm() { setForm({ name: "", targetAmount: "", savedAmount: "0", deadlineISO: "" }); setEditingId(null); }
+  function closeForm() { resetForm(); setShowForm(false); }
   function submit() {
     if (!form.name.trim() || !form.targetAmount) return;
     const payload = { name: form.name, targetAmount: Number(form.targetAmount), savedAmount: Number(form.savedAmount || 0), deadlineISO: form.deadlineISO };
     const next = editingId ? data.goals.map((g) => (g.id === editingId ? { ...g, ...payload } : g)) : [...data.goals, { id: uid(), ...payload }];
     update({ goals: next });
     toast(editingId ? "Meta actualizada" : "Meta creada");
-    resetForm();
+    closeForm();
   }
-  function edit(g) { setForm({ name: g.name, targetAmount: String(g.targetAmount), savedAmount: String(g.savedAmount), deadlineISO: g.deadlineISO || "" }); setEditingId(g.id); }
+  function edit(g) { setForm({ name: g.name, targetAmount: String(g.targetAmount), savedAmount: String(g.savedAmount), deadlineISO: g.deadlineISO || "" }); setEditingId(g.id); setShowForm(true); }
   async function remove(id) {
     if (!await confirm("¿Eliminar esta meta?")) return;
     update({ goals: data.goals.filter((g) => g.id !== id) });
@@ -66,17 +74,21 @@ export function Metas({ t, data, update }) {
         );
       })}
 
-      <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-        <SectionTitle t={t}>{editingId ? "Editar meta" : "Nueva meta"}</SectionTitle>
+      {data.goals.length === 0 && (
+        <Card t={t}>
+          <div style={{ fontSize: 13, color: t.textDim, textAlign: "center", padding: "12px 0" }}>Sin metas registradas. Toca + para crear una.</div>
+        </Card>
+      )}
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar meta" : "Nueva meta"}>
         <Input t={t} placeholder="Nombre (ej. Fondo de emergencia)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
         <Input t={t} placeholder="Monto objetivo (USD)" type="number" value={form.targetAmount} onChange={(v) => setForm({ ...form, targetAmount: v })} />
         <Input t={t} placeholder="Ya ahorrado (USD)" type="number" value={form.savedAmount} onChange={(v) => setForm({ ...form, savedAmount: v })} />
         <Input t={t} type="date" value={form.deadlineISO} onChange={(v) => setForm({ ...form, deadlineISO: v })} />
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
           <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Crear meta"}</button>
-          {editingId && <button onClick={resetForm} style={btnGhost(t)}>Cancelar</button>}
         </div>
-      </Card>
+      </FormSheet>
     </div>
   );
 }

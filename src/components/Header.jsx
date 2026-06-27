@@ -2,7 +2,7 @@ import React from "react";
 
 export function Header({ t, dark, setDark, configOpen, setConfigOpen }) {
   return (
-    <div style={{ borderBottom: `1px solid ${t.border}`, padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", background: t.bgElev }}>
+    <div style={{ borderBottom: `1px solid ${t.border}`, padding: `max(16px, env(safe-area-inset-top, 20px)) 18px 16px 18px`, display: "flex", alignItems: "center", justifyContent: "space-between", background: t.bgElev }}>
       <div>
         <div style={{ fontSize: 11, letterSpacing: 3, color: t.gold, fontWeight: 700 }}>VAULT</div>
         <div style={{ fontSize: 13, color: t.textDim, marginTop: 2 }}>Tu bóveda financiera</div>
@@ -14,4 +14,3 @@ export function Header({ t, dark, setDark, configOpen, setConfigOpen }) {
     </div>
   );
 }
-

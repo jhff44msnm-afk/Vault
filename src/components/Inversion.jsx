@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { Card, SectionTitle, MonoAmount, AnimatedMonoAmount, Row, Input, Select, CollapsibleSection, btnPrimary, btnGhost, btnSmall, iconBtn, pillBtn } from "./ui.jsx";
+import { Card, SectionTitle, MonoAmount, AnimatedMonoAmount, Row, Input, Select, FormSheet, CollapsibleSection, btnPrimary, btnGhost, btnSmall, iconBtn, pillBtn } from "./ui.jsx";
 import { INVESTMENT_TYPES, RISK_RANGES } from "../utils/constants.js";
 import { fmt, pctStr, uid } from "../utils/calculations.js";
 import { fetchAlphaVantageQuote } from "../services/financeApi.js";
@@ -14,6 +14,7 @@ export function Inversion({ t, data, update }) {
   const confirm = useConfirm();
   const [form, setForm] = useState({ name: "", type: "ETFs", capitalInvertido: "", valorActual: "", fechaCompra: new Date().toISOString().slice(0, 10), ticker: "", quantity: "", notes: "" });
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   const [quoteStatus, setQuoteStatus] = useState({});
   const [watchInput, setWatchInput] = useState("");
   const [watchStatus, setWatchStatus] = useState({});
@@ -26,7 +27,14 @@ export function Inversion({ t, data, update }) {
   const [rate, setRate] = useState(String(RISK_RANGES["Moderado"].min + 1));
   useEffect(() => { setRate(String(RISK_RANGES[risk].min + 1)); }, [risk]);
 
+  useEffect(() => {
+    const handler = () => { resetForm(); setShowForm(true); };
+    window.addEventListener("vault-open-form", handler);
+    return () => window.removeEventListener("vault-open-form", handler);
+  }, []);
+
   function resetForm() { setForm({ name: "", type: "ETFs", capitalInvertido: "", valorActual: "", fechaCompra: new Date().toISOString().slice(0, 10), ticker: "", quantity: "", notes: "" }); setEditingId(null); }
+  function closeForm() { resetForm(); setShowForm(false); }
   function submit() {
     if (!form.name.trim() || !form.capitalInvertido) return;
     const payload = {
@@ -39,9 +47,9 @@ export function Inversion({ t, data, update }) {
     const next = editingId ? data.investments.map((i) => (i.id === editingId ? { ...i, ...payload } : i)) : [...data.investments, { id: uid(), ...payload }];
     update({ investments: next });
     toast(editingId ? "Inversión actualizada" : "Inversión registrada");
-    resetForm();
+    closeForm();
   }
-  function edit(i) { setForm({ name: i.name, type: i.type, capitalInvertido: String(i.capitalInvertido), valorActual: String(i.valorActual), fechaCompra: i.fechaCompra, ticker: i.ticker || "", quantity: String(i.quantity || ""), notes: i.notes || "" }); setEditingId(i.id); }
+  function edit(i) { setForm({ name: i.name, type: i.type, capitalInvertido: String(i.capitalInvertido), valorActual: String(i.valorActual), fechaCompra: i.fechaCompra, ticker: i.ticker || "", quantity: String(i.quantity || ""), notes: i.notes || "" }); setEditingId(i.id); setShowForm(true); }
   async function remove(id) {
     if (!await confirm("¿Eliminar esta inversión?")) return;
     update({ investments: data.investments.filter((i) => i.id !== id) });
@@ -158,23 +166,6 @@ export function Inversion({ t, data, update }) {
         </Card>
       )}
 
-      <Card t={t} id="vault-form" style={{ animation: "vault-slideUp 0.4s ease both" }}>
-        <SectionTitle t={t}>{editingId ? "Editar inversión" : "Registrar inversión"}</SectionTitle>
-        <Input t={t} placeholder="Nombre (ej. VOO, CETES 28d)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-        <Select t={t} value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={INVESTMENT_TYPES} />
-        <Input t={t} placeholder="Capital invertido (USD)" type="number" value={form.capitalInvertido} onChange={(v) => setForm({ ...form, capitalInvertido: v })} />
-        <Input t={t} placeholder="Valor actual (USD) — déjalo vacío si es igual al capital" type="number" value={form.valorActual} onChange={(v) => setForm({ ...form, valorActual: v })} />
-        <Input t={t} type="date" value={form.fechaCompra} onChange={(v) => setForm({ ...form, fechaCompra: v })} />
-        <div style={{ fontSize: 11, color: t.textDim, margin: "4px 0" }}>Opcional, para precios en vivo:</div>
-        <Input t={t} placeholder="Ticker (ej. VOO, BTC)" value={form.ticker} onChange={(v) => setForm({ ...form, ticker: v })} />
-        <Input t={t} placeholder="Cantidad de unidades/acciones" type="number" value={form.quantity} onChange={(v) => setForm({ ...form, quantity: v })} />
-        <Input t={t} placeholder="Nota (opcional)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
-          {editingId && <button onClick={resetForm} style={btnGhost(t)}>Cancelar</button>}
-        </div>
-      </Card>
-
       <Card t={t}>
         <CollapsibleSection t={t} title="Watchlist" count={data.watchlist.length}>
           <div style={{ fontSize: 11, color: t.textDim, marginBottom: 8 }}>Agrega los símbolos que quieras seguir. Solo muestra información del mercado, no son recomendaciones personalizadas.</div>
@@ -240,6 +231,21 @@ export function Inversion({ t, data, update }) {
       <div style={{ fontSize: 11, color: t.textDim, lineHeight: 1.5, padding: "0 4px" }}>
         Este simulador y la watchlist son educativos/informativos. No garantizan rendimientos y no son asesoría financiera certificada.
       </div>
+
+      <FormSheet t={t} open={showForm} onClose={closeForm} title={editingId ? "Editar inversión" : "Registrar inversión"}>
+        <Input t={t} placeholder="Nombre (ej. VOO, CETES 28d)" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+        <Select t={t} value={form.type} onChange={(v) => setForm({ ...form, type: v })} options={INVESTMENT_TYPES} />
+        <Input t={t} placeholder="Capital invertido (USD)" type="number" value={form.capitalInvertido} onChange={(v) => setForm({ ...form, capitalInvertido: v })} />
+        <Input t={t} placeholder="Valor actual (USD) — déjalo vacío si es igual al capital" type="number" value={form.valorActual} onChange={(v) => setForm({ ...form, valorActual: v })} />
+        <Input t={t} type="date" value={form.fechaCompra} onChange={(v) => setForm({ ...form, fechaCompra: v })} />
+        <div style={{ fontSize: 11, color: t.textDim, margin: "4px 0" }}>Opcional, para precios en vivo:</div>
+        <Input t={t} placeholder="Ticker (ej. VOO, BTC)" value={form.ticker} onChange={(v) => setForm({ ...form, ticker: v })} />
+        <Input t={t} placeholder="Cantidad de unidades/acciones" type="number" value={form.quantity} onChange={(v) => setForm({ ...form, quantity: v })} />
+        <Input t={t} placeholder="Nota (opcional)" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} />
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <button onClick={submit} style={btnPrimary(t)}>{editingId ? "Guardar cambios" : "Agregar"}</button>
+        </div>
+      </FormSheet>
     </div>
   );
 }
