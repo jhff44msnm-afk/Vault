@@ -10,7 +10,7 @@ export function Movimientos({ t, data, update }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [kind, setKind] = useState("expense");
-  const [view, setView] = useState("week");
+  const [view, setView] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [formKind, setFormKind] = useState("expense");
   const [expForm, setExpForm] = useState({ name: "", amount: "", category: "Food", dateISO: new Date().toISOString().slice(0, 10), paymentMethod: "Cash", notes: "" });

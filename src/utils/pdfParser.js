@@ -1,20 +1,24 @@
 import * as pdfjsLib from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-try {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
-} catch (e) {
-  // Worker setup can fail on some mobile browsers — falls back to main thread
+if (pdfjsWorkerUrl) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+}
+
+const PDF_OPTS = { useSystemFonts: true, disableAutoFetch: true, isEvalSupported: false };
+
+async function loadPDF(arrayBuffer) {
+  try {
+    return await pdfjsLib.getDocument({ data: arrayBuffer, ...PDF_OPTS }).promise;
+  } catch (_) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+    return await pdfjsLib.getDocument({ data: arrayBuffer, ...PDF_OPTS }).promise;
+  }
 }
 
 export async function extractTextFromPDF(file) {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({
-    data: arrayBuffer,
-    useSystemFonts: true,
-    disableAutoFetch: true,
-    isEvalSupported: false,
-  }).promise;
+  const pdf = await loadPDF(arrayBuffer);
 
   const allRows = [];
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -90,7 +94,7 @@ function tryParseAmount(text) {
   let clean = text.trim().replace(/\s/g, "");
   const isNegative = clean.includes("(") || clean.startsWith("-") || clean.endsWith("-");
   clean = clean.replace(/[()$,]/g, "").replace(/^-/, "").replace(/-$/, "");
-  const m = clean.match(/^(\d+\.\d{2})$/);
+  const m = clean.match(/^(\d*\.\d{1,2})$/);
   if (!m) return null;
   const val = parseFloat(m[1]);
   if (val === 0 || isNaN(val)) return null;
@@ -117,12 +121,22 @@ const INCOME_KEYWORDS = [
 ];
 
 const CATEGORY_KEYWORDS = {
+  "Housing/Bills": [
+    "rent", "mortgage", "electric", "water", "sewage", "trash", "internet",
+    "cable", "phone", "at&t", "att", "verizon", "t-mobile", "tmobile",
+    "comcast", "xfinity", "utility", "pg&e", "pge", "conedison", "duke energy",
+    "spectrum", "cox", "centurylink", "windstream", "frontier comm",
+    "hoa", "property", "homeowner", "renter", "lease",
+    "progressive", "insurance", "insur", "geico", "state farm", "allstate",
+    "cfe", "telmex", "izzi", "megacable", "totalplay",
+  ],
   "Food": [
-    "grocery", "groceries", "restaurant", "food", "dining", "mcdonald",
+    "grocery", "groceries", "restaurant", "rest ", "food", "dining", "mcdonald",
     "starbucks", "chipotle", "pizza", "burger", "cafe", "coffee",
     "doordash", "grubhub", "uber eat", "instacart", "whole foods",
-    "trader joe", "kroger", "walmart", "aldi", "costco", "safeway",
-    "publix", "target", "sam's club", "bj's", "wendy", "taco bell",
+    "trader joe", "kroger", "walmart", "wm supercenter", "wal-mart", "wal mart",
+    "aldi", "costco", "safeway",
+    "publix", "target", "sam's club", "bj's", "wendy", "taco bell", "taco ",
     "chick-fil", "subway", "panera", "olive garden", "applebee",
     "denny", "ihop", "wingstop", "panda express", "five guys",
     "popeye", "sonic", "arby", "jack in the box", "whataburger",
@@ -131,22 +145,19 @@ const CATEGORY_KEYWORDS = {
     "deli", "chicken", "grill", "sushi", "ramen", "thai", "chinese",
     "mexican", "italian", "indian", "korean", "bbq", "barbecue",
     "wawa", "sheetz", "7-eleven", "circle k", "quicktrip",
+    "soriana", "oxxo", "chedraui", "bodega aurrera", "heb ", "h-e-b",
+    "tortas", "torta ", "panaderia", "carniceria", "antojitos",
+    "chapa", "gorditas", "tamales", "birria", "pozole", "elote",
+    "little caesars", "domino", "papa john",
   ],
   "Transport": [
-    "gas", "fuel", "shell", "chevron", "exxon", "mobil", "bp ", "sunoco",
+    "gas ", "fuel", "shell", "chevron", "exxon", "bp ", "sunoco",
     "valero", "marathon", "citgo", "uber", "lyft", "parking", "toll",
     "transit", "metro", "bus", "amtrak", "airline", "flight", "delta",
     "united", "southwest", "american air", "jetblue", "spirit", "frontier",
     "car wash", "auto parts", "autozone", "o'reilly", "jiffy lube",
-    "tire", "mechanic",
-  ],
-  "Housing/Bills": [
-    "rent", "mortgage", "electric", "water", "sewage", "trash", "internet",
-    "cable", "phone", "at&t", "att", "verizon", "t-mobile", "comcast",
-    "xfinity", "utility", "pg&e", "pge", "conedison", "duke energy",
-    "spectrum", "cox", "centurylink", "windstream", "frontier comm",
-    "hoa", "property", "homeowner", "renter", "lease",
-    "progressive", "insurance", "insur", "geico", "state farm", "allstate",
+    "tire", "mechanic", "alon ", "alon dk", "gasolinera", "pemex",
+    "mobil ", "gasolina",
   ],
   "Subscriptions": [
     "netflix", "spotify", "hulu", "disney", "hbo", "apple.com", "apple music",
@@ -170,12 +181,17 @@ const CATEGORY_KEYWORDS = {
     "shoe", "footwear",
   ],
   "Personal": [
-    "salon", "barber", "spa", "beauty", "cosmetic", "dry clean", "laundry",
+    "salon", "barber", "spa", "beauty", "belleza", "cosmetic", "dry clean", "laundry",
     "nail", "massage", "sephora", "ulta", "bath & body",
+    "todomoda", "toska", "miniso", "perfum",
   ],
   "Family": [
     "school", "tuition", "daycare", "childcare", "pet", "veterinary",
     "toys", "petsmart", "petco", "baby", "kids",
+  ],
+  "Other": [
+    "foreign transaction fee", "intl transaction fee", "international fee",
+    "atm fee", "service charge", "monthly fee", "maintenance fee",
   ],
 };
 
