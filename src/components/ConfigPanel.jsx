@@ -72,6 +72,21 @@ export function ConfigPanel({ t, data, update, close }) {
         <button onClick={() => fileRef.current?.click()} style={{ ...btnGhost(t), flex: 1 }}>Import (.json)</button>
       </div>
       <input ref={fileRef} type="file" accept=".json,application/json" onChange={importBackup} style={{ display: "none" }} />
+
+      <div style={{ marginTop: 20 }}>
+        <SectionTitle t={t}>Danger Zone</SectionTitle>
+        <button onClick={async () => {
+          if (!await confirm("This will permanently delete ALL your data (transactions, bills, goals, investments, statements, etc.). This cannot be undone. Are you sure?", "Reset everything")) return;
+          update({ ...DEFAULT_DATA });
+          toast("All data has been reset");
+          close();
+        }} style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: `1px solid ${t.red}`, background: "transparent", color: t.red, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          Reset all data
+        </button>
+        <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 6, lineHeight: 1.5 }}>
+          This will erase everything and restore the app to its initial state. Export a backup first if you want to keep your data.
+        </div>
+      </div>
     </Card>
   );
 }
