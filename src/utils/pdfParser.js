@@ -88,8 +88,8 @@ function tryParseDate(text) {
 
 function tryParseAmount(text) {
   let clean = text.trim().replace(/\s/g, "");
-  const isNegative = clean.includes("(") || clean.startsWith("-");
-  clean = clean.replace(/[()$,]/g, "").replace(/^-/, "");
+  const isNegative = clean.includes("(") || clean.startsWith("-") || clean.endsWith("-");
+  clean = clean.replace(/[()$,]/g, "").replace(/^-/, "").replace(/-$/, "");
   const m = clean.match(/^(\d+\.\d{2})$/);
   if (!m) return null;
   const val = parseFloat(m[1]);
@@ -113,7 +113,7 @@ const INCOME_KEYWORDS = [
   "deposit", "direct dep", "payroll", "salary", "refund", "credit memo",
   "interest earned", "interest payment", "dividend", "cashback", "cash back",
   "rebate", "reimbursement", "venmo from", "zelle from", "transfer from",
-  "ach credit", "wire in", "mobile deposit",
+  "trnsfer frm", "ach credit", "wire in", "mobile deposit", "pmt credit",
 ];
 
 const CATEGORY_KEYWORDS = {
@@ -146,6 +146,7 @@ const CATEGORY_KEYWORDS = {
     "xfinity", "utility", "pg&e", "pge", "conedison", "duke energy",
     "spectrum", "cox", "centurylink", "windstream", "frontier comm",
     "hoa", "property", "homeowner", "renter", "lease",
+    "progressive", "insurance", "insur", "geico", "state farm", "allstate",
   ],
   "Subscriptions": [
     "netflix", "spotify", "hulu", "disney", "hbo", "apple.com", "apple music",
@@ -213,77 +214,71 @@ export function parseTransactions(rows) {
       if (d) { dateISO = d; dateIdx = i; break; }
     }
 
-    const combinedDate = tryParseDate(fullLine.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/)?.[0] || "");
-    if (!dateISO && combinedDate) { dateISO = combinedDate; }
+    if (!dateISO) {
+      const combinedDate = tryParseDate((fullLine.match(/(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)/) || [])[0] || "");
+      if (combinedDate) dateISO = combinedDate;
+    }
 
     if (!dateISO) continue;
 
+    // Find all amounts with their x-position
     const amounts = [];
-    for (let i = 0; i < cells.length; i++) {
+    for (let i = 0; i < row.length; i++) {
       if (i === dateIdx) continue;
-      const amt = tryParseAmount(cells[i]);
-      if (amt !== null) amounts.push({ value: amt, idx: i });
-    }
-
-    const combinedAmounts = [];
-    const amountRe = /\$?\s*-?\s*\(?\s*[\d,]+\.\d{2}\s*\)?/g;
-    let match;
-    while ((match = amountRe.exec(fullLine)) !== null) {
-      const val = tryParseAmount(match[0]);
-      if (val !== null) combinedAmounts.push(val);
+      const amt = tryParseAmount(row[i].text);
+      if (amt !== null) amounts.push({ value: amt, idx: i, x: row[i].x || 0 });
     }
 
     let amount = null;
-    if (amounts.length > 0) {
-      amount = amounts[amounts.length - 1].value;
-    } else if (combinedAmounts.length > 0) {
-      amount = combinedAmounts[combinedAmounts.length - 1];
+    let amountIdx = -1;
+    let balanceIdx = -1;
+
+    if (amounts.length >= 2) {
+      // Sort by x-position: first = Amount column, last = Balance column
+      amounts.sort((a, b) => a.x - b.x);
+      amount = amounts[0].value;
+      amountIdx = amounts[0].idx;
+      balanceIdx = amounts[amounts.length - 1].idx;
+    } else if (amounts.length === 1) {
+      amount = amounts[0].value;
+      amountIdx = amounts[0].idx;
     }
 
     if (amount === null) continue;
 
-    const descParts = [];
+    // Build description excluding date, amount, and balance columns
     const usedIndices = new Set();
     if (dateIdx >= 0) usedIndices.add(dateIdx);
-    for (const a of amounts) usedIndices.add(a.idx);
+    if (amountIdx >= 0) usedIndices.add(amountIdx);
+    if (balanceIdx >= 0) usedIndices.add(balanceIdx);
 
+    const descParts = [];
     for (let i = 0; i < cells.length; i++) {
       if (usedIndices.has(i)) continue;
       const cell = cells[i].trim();
       if (!cell) continue;
       if (tryParseDate(cell)) continue;
-      if (/^\$?\s*-?\s*\(?\s*[\d,]+\.\d{2}\s*\)?$/.test(cell)) continue;
+      if (/^\$?\s*-?\s*\(?\s*[\d,]+\.\d{2}\s*-?\s*\)?$/.test(cell)) continue;
       descParts.push(cell);
     }
 
     let desc = descParts.join(" ").replace(/\s+/g, " ").trim();
-
-    if (!desc && amounts.length >= 2) {
-      const middleParts = [];
-      for (let i = 0; i < cells.length; i++) {
-        if (i === dateIdx || i === amounts[amounts.length - 1].idx) continue;
-        middleParts.push(cells[i].trim());
-      }
-      desc = middleParts.join(" ").replace(/\s+/g, " ").trim();
-    }
-
     if (!desc || desc.length < 2) continue;
     if (desc.length > 80) desc = desc.slice(0, 80).trim();
-
     if (SKIP_PATTERNS.some((pat) => pat.test(desc.toLowerCase()))) continue;
 
+    // Bank statement: negative (trailing "-") = debit/expense, positive = credit/income
     const absAmount = Math.abs(amount);
-    const isNegativeAmount = amount < 0;
+    const isExpense = amount < 0;
 
     const lowerDesc = desc.toLowerCase();
-    const isIncome = INCOME_KEYWORDS.some((kw) => lowerDesc.includes(kw)) || isNegativeAmount;
 
     transactions.push({
       name: desc,
       amount: absAmount,
       dateISO,
-      type: isIncome ? "income" : "expense",
-      category: isIncome ? guessIncomeCategory(lowerDesc) : categorize(desc),
+      type: isExpense ? "expense" : "income",
+      category: isExpense ? categorize(desc) : guessIncomeCategory(lowerDesc),
     });
   }
 

@@ -181,11 +181,27 @@ export function Documentos({ t, data, update }) {
       };
     });
 
-    // Detect recurring transactions (same merchant 2+ times)
+    // Auto-add bills: subscriptions and housing/bills categories go straight to Bills
+    const existingBillNames = data.fixedExpenses.map((e) => e.name.toLowerCase());
+    const autoBills = newExpenses
+      .filter((e) => (e.category === "Housing/Bills" || e.category === "Subscriptions") && !existingBillNames.includes(e.name.toLowerCase()))
+      .reduce((acc, e) => {
+        if (!acc.find((b) => b.name.toLowerCase() === e.name.toLowerCase())) acc.push(e);
+        return acc;
+      }, [])
+      .map((e) => ({
+        id: uid(), name: e.name, amount: e.amount,
+        dayOfMonth: new Date(e.dateISO).getDate(),
+        category: e.category, notes: "Auto-detected from statement", lastPaidISO: null,
+      }));
+
+    // Detect other recurring transactions (same merchant 2+ times, not already auto-added)
     const merchantCounts = {};
+    const autoBillNames = autoBills.map((b) => b.name.toLowerCase());
     toImport.forEach((tx) => {
       if (tx.type !== "expense") return;
       const key = tx.name.toLowerCase().replace(/\s+/g, " ").trim();
+      if (autoBillNames.includes(key)) return;
       if (!merchantCounts[key]) merchantCounts[key] = { name: tx.name, amounts: [], category: txnCategories[parsedTxns.indexOf(tx)] || tx.category };
       merchantCounts[key].amounts.push(tx.amount);
     });
@@ -201,11 +217,15 @@ export function Documentos({ t, data, update }) {
     update({
       variableExpenses: [...data.variableExpenses, ...newExpenses],
       incomes: [...data.incomes, ...newIncomes],
+      fixedExpenses: [...data.fixedExpenses, ...autoBills],
       categoryMappings: newMappings,
     });
 
-    setImportStats({ expenses: newExpenses.length, income: newIncomes.length, total: fmt(toImport.reduce((s, tx) => s + tx.amount, 0)) });
-    toast(`Imported ${toImport.length} transactions`);
+    let msg = `Imported ${toImport.length} transactions`;
+    if (autoBills.length > 0) msg += `, added ${autoBills.length} bill${autoBills.length !== 1 ? "s" : ""}`;
+
+    setImportStats({ expenses: newExpenses.length, income: newIncomes.length, total: fmt(toImport.reduce((s, tx) => s + tx.amount, 0)), bills: autoBills.length });
+    toast(msg);
 
     if (recurring.length > 0) {
       setRecurringCandidates(recurring);
@@ -348,7 +368,8 @@ export function Documentos({ t, data, update }) {
           <Row t={t} label="Expenses imported" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{importStats.expenses}</span>} />
           <Row t={t} label="Income imported" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{importStats.income}</span>} />
           <Row t={t} label="Total value" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{importStats.total}</span>} />
-          <div style={{ fontSize: 11, color: t.textDim, marginTop: 6 }}>Transactions were added to your Transactions tab. Review them there.</div>
+          {importStats.bills > 0 && <Row t={t} label="Bills auto-added" valueNode={<span style={{ fontFamily: "ui-monospace, monospace" }}>{importStats.bills}</span>} />}
+          <div style={{ fontSize: 11, color: t.textDim, marginTop: 6 }}>Transactions added to Transactions tab. Bills added to Bills tab. Review them there.</div>
         </Card>
       )}
 
